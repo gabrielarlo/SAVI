@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Documents | LocalRAG</title>
+  </head>
+  <body
+    x-data="{ page: 'documents', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode')) ?? false;
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <!-- ===== Preloader Start ===== -->
+    <include src="./partials/common/preloader.html"></include>
+    <!-- ===== Preloader End ===== -->
+
+    <!-- ===== Page Wrapper Start ===== -->
+    <div class="flex h-screen overflow-hidden">
+      <!-- ===== Sidebar Start ===== -->
+      <include src="./partials/layout/app-layout/sidebar/index.html"></include>
+      <!-- ===== Sidebar End ===== -->
+
+      <!-- ===== Content Area Start ===== -->
+      <div
+        class="relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto"
+      >
+        <!-- ===== Header Start ===== -->
+        <include src="./partials/layout/app-layout/header/index.html" />
+        <!-- ===== Header End ===== -->
+
+        <!-- ===== Main Content Start ===== -->
+        <main id="main-content">
+          <div
+            class="mx-auto max-w-(--breakpoint-2xl) p-4 pb-20 md:p-6 md:pb-6"
+          >
+            <!-- Breadcrumb Start -->
+            <div x-data="{ pageTitle: 'Documents' }">
+              <include src="./partials/common/page-breadcrumb.html" />
+            </div>
+            <!-- Breadcrumb End -->
+
+            <div class="space-y-5 sm:space-y-6">
+              <!-- Upload Start -->
+              <div
+                class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3"
+              >
+                <div
+                  class="border-b border-gray-100 px-4 py-4 sm:px-6 dark:border-gray-800"
+                >
+                  <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                    Upload a document
+                  </h3>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Text, Markdown, or PDF up to 10 MB. The file is chunked and
+                    indexed for the selected tenant.
+                  </p>
+                </div>
+
+                <form
+                  id="upload-form"
+                  class="space-y-5 p-4 sm:p-6"
+                  novalidate
+                >
+                  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div>
+                      <label
+                        for="upload-tenant"
+                        class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                        >Tenant</label
+                      >
+                      <select
+                        id="upload-tenant"
+                        name="tenant_id"
+                        required
+                        class="h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                      >
+                        <option value="">Select a tenant</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        for="upload-title"
+                        class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                        >Title <span class="text-gray-400">(optional)</span></label
+                      >
+                      <input
+                        id="upload-title"
+                        name="title"
+                        type="text"
+                        placeholder="Defaults to the file name"
+                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      for="upload-file"
+                      class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                      >File</label
+                    >
+                    <input
+                      id="upload-file"
+                      name="file"
+                      type="file"
+                      required
+                      accept=".txt,.md,.pdf"
+                      class="w-full cursor-pointer rounded-lg border border-gray-300 bg-transparent text-sm text-gray-500 file:mr-4 file:border-0 file:bg-gray-100 file:px-4 file:py-3 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:border-gray-700 dark:text-gray-400 dark:file:bg-white/5 dark:file:text-gray-300"
+                    />
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-3">
+                    <button
+                      id="upload-submit"
+                      type="submit"
+                      class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Upload
+                    </button>
+                    <p
+                      id="upload-message"
+                      role="status"
+                      class="hidden text-sm"
+                    ></p>
+                  </div>
+                </form>
+              </div>
+              <!-- Upload End -->
+
+              <!-- Documents Table Start -->
+              <div
+                class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3"
+              >
+                <div
+                  class="flex flex-col gap-3 border-b border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6 dark:border-gray-800"
+                >
+                  <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                    Stored documents
+                  </h3>
+
+                  <div class="flex items-center gap-2">
+                    <label class="sr-only" for="filter-tenant"
+                      >Filter by tenant</label
+                    >
+                    <select
+                      id="filter-tenant"
+                      class="h-11 appearance-none rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    >
+                      <option value="">All tenants</option>
+                    </select>
+                    <button
+                      id="refresh"
+                      type="button"
+                      class="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <div class="max-w-full overflow-x-auto">
+                  <table class="w-full">
+                    <thead>
+                      <tr class="border-b border-gray-100 dark:border-gray-800">
+                        <th
+                          class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                        >
+                          Title
+                        </th>
+                        <th
+                          class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                        >
+                          Tenant
+                        </th>
+                        <th
+                          class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                        >
+                          Chunks
+                        </th>
+                        <th
+                          class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                        >
+                          Created
+                        </th>
+                        <th
+                          class="px-5 py-3 text-right text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                        >
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody id="documents-body"></tbody>
+                  </table>
+
+                  <p
+                    id="documents-empty"
+                    class="hidden p-6 text-center text-sm text-gray-500 dark:text-gray-400"
+                  >
+                    No documents match this filter yet.
+                  </p>
+                </div>
+              </div>
+              <!-- Documents Table End -->
+            </div>
+          </div>
+        </main>
+        <!-- ===== Main Content End ===== -->
+      </div>
+      <!-- ===== Content Area End ===== -->
+    </div>
+    <!-- ===== Page Wrapper End ===== -->
+
+    <!-- ===== Chunk Preview Dialog Start ===== -->
+    <dialog
+      id="chunk-dialog"
+      class="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white p-0 text-gray-800 backdrop:bg-gray-900/50 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+    >
+      <div
+        class="flex items-start justify-between gap-4 border-b border-gray-100 p-4 sm:p-6 dark:border-gray-800"
+      >
+        <div>
+          <h3
+            id="chunk-dialog-title"
+            class="text-base font-medium text-gray-800 dark:text-white/90"
+          ></h3>
+          <p
+            id="chunk-dialog-meta"
+            class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+          ></p>
+        </div>
+        <button
+          id="chunk-dialog-close"
+          type="button"
+          aria-label="Close"
+          class="inline-flex size-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="max-h-[70vh] space-y-4 overflow-y-auto p-4 sm:p-6">
+        <div id="chunk-list" class="space-y-4"></div>
+        <p
+          id="chunk-empty"
+          class="hidden text-sm text-gray-500 dark:text-gray-400"
+        >
+          This document has no chunks. Scanned PDFs and empty files produce no
+          text to index.
+        </p>
+      </div>
+    </dialog>
+    <!-- ===== Chunk Preview Dialog End ===== -->
+  </body>
+</html>

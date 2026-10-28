@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Tenants | LocalRAG</title>
+  </head>
+  <body
+    x-data="{ page: 'tenants', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode')) ?? false;
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <!-- ===== Preloader Start ===== -->
+    <include src="./partials/common/preloader.html"></include>
+    <!-- ===== Preloader End ===== -->
+
+    <!-- ===== Page Wrapper Start ===== -->
+    <div class="flex h-screen overflow-hidden">
+      <!-- ===== Sidebar Start ===== -->
+      <include src="./partials/layout/app-layout/sidebar/index.html"></include>
+      <!-- ===== Sidebar End ===== -->
+
+      <!-- ===== Content Area Start ===== -->
+      <div
+        class="relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto"
+      >
+        <!-- ===== Header Start ===== -->
+        <include src="./partials/layout/app-layout/header/index.html" />
+        <!-- ===== Header End ===== -->
+
+        <!-- ===== Main Content Start ===== -->
+        <main id="main-content">
+          <div
+            class="mx-auto max-w-(--breakpoint-2xl) p-4 pb-20 md:p-6 md:pb-6"
+          >
+            <!-- Breadcrumb Start -->
+            <div x-data="{ pageTitle: 'Tenants' }">
+              <include src="./partials/common/page-breadcrumb.html" />
+            </div>
+            <!-- Breadcrumb End -->
+
+            <div class="space-y-5 sm:space-y-6">
+              <!-- Tenant List Start -->
+              <div
+                class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3"
+              >
+                <div
+                  class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6 dark:border-gray-800"
+                >
+                  <div>
+                    <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
+                      Tenants
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Tenants can be archived but never deleted.
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <select
+                      id="filter-status"
+                      class="rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-700 focus:border-brand-400 focus:outline-none dark:border-gray-700 dark:text-gray-300"
+                    >
+                      <option value="all">All</option>
+                      <option value="active">Active</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                    <button
+                      id="refresh"
+                      type="button"
+                      class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
+                    >
+                      Refresh
+                    </button>
+                    <button
+                      id="create-open"
+                      type="button"
+                      class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600"
+                    >
+                      Create Tenant
+                    </button>
+                  </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full min-w-[42rem]">
+                    <thead>
+                      <tr class="border-b border-gray-100 dark:border-gray-800">
+                        <th class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">Name</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">ID</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">Created</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">Status</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tenants-body"></tbody>
+                  </table>
+                </div>
+
+                <p
+                  id="tenants-empty"
+                  class="hidden px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
+                >
+                  No tenants match this filter yet. Create the first one with
+                  &ldquo;Create Tenant&rdquo;.
+                </p>
+              </div>
+              <!-- Tenant List End -->
+            </div>
+
+            <!-- ===== Main Content End ===== -->
+          </div>
+        </main>
+      </div>
+      <!-- ===== Content Area End ===== -->
+    </div>
+    <!-- ===== Page Wrapper End ===== -->
+
+    <!-- ===== Create Tenant Dialog Start ===== -->
+    <dialog
+      id="create-dialog"
+      class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-0 text-gray-800 backdrop:bg-gray-900/50 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+    >
+      <div
+        class="flex items-start justify-between gap-4 border-b border-gray-100 p-4 sm:p-6 dark:border-gray-800"
+      >
+        <h3 class="text-base font-medium">Create tenant</h3>
+        <button
+          id="create-dialog-close"
+          type="button"
+          aria-label="Close"
+          class="inline-flex size-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="create-form" class="space-y-4 p-4 sm:p-6" novalidate>
+        <div>
+          <label
+            for="create-name"
+            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+            >Tenant name</label
+          >
+          <input
+            id="create-name"
+            type="text"
+            required
+            placeholder="Acme Corp"
+            class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-400 focus:outline-none dark:border-gray-700"
+          />
+          <p id="create-message" class="mt-2 hidden text-sm"></p>
+        </div>
+        <button
+          type="submit"
+          class="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600"
+        >
+          Create tenant
+        </button>
+      </form>
+    </dialog>
+    <!-- ===== Create Tenant Dialog End ===== -->
+
+    <!-- ===== API Key Reveal Dialog Start ===== -->
+    <dialog
+      id="key-dialog"
+      class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-0 text-gray-800 backdrop:bg-gray-900/50 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+    >
+      <div class="space-y-4 p-4 sm:p-6">
+        <div>
+          <h3 class="text-base font-medium">Tenant created</h3>
+          <p id="key-name" class="mt-1 text-sm text-gray-500 dark:text-gray-400"></p>
+        </div>
+        <p class="text-sm text-gray-700 dark:text-gray-300">
+          Copy the API key now. It is shown only this once.
+        </p>
+        <div
+          class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 dark:border-gray-800 dark:bg-white/5"
+        >
+          <code
+            id="key-value"
+            class="select-all font-mono text-sm break-all"
+          ></code>
+          <button
+            id="copy-key"
+            type="button"
+            class="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
+          >
+            Copy
+          </button>
+        </div>
+        <button
+          id="key-dialog-close"
+          type="button"
+          class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
+        >
+          Done
+        </button>
+      </div>
+    </dialog>
+    <!-- ===== API Key Reveal Dialog End ===== -->
+
+    <!-- ===== Edit Tenant Dialog Start ===== -->
+    <dialog
+      id="edit-dialog"
+      class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-0 text-gray-800 backdrop:bg-gray-900/50 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+    >
+      <div
+        class="flex items-start justify-between gap-4 border-b border-gray-100 p-4 sm:p-6 dark:border-gray-800"
+      >
+        <h3 class="text-base font-medium">Rename tenant</h3>
+        <button
+          id="edit-dialog-close"
+          type="button"
+          aria-label="Close"
+          class="inline-flex size-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="edit-form" class="space-y-4 p-4 sm:p-6" novalidate>
+        <div>
+          <label
+            for="edit-name"
+            class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+            >Tenant name</label
+          >
+          <input
+            id="edit-name"
+            type="text"
+            required
+            class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm focus:border-brand-400 focus:outline-none dark:border-gray-700"
+          />
+          <p id="edit-message" class="mt-2 hidden text-sm"></p>
+        </div>
+        <button
+          type="submit"
+          class="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600"
+        >
+          Save changes
+        </button>
+      </form>
+    </dialog>
+    <!-- ===== Edit Tenant Dialog End ===== -->
+  </body>
+</html>

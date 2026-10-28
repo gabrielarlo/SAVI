@@ -1,0 +1,79 @@
+<!-- User Dropdown -->
+<div class="relative" x-data="{ open: false }" @click.outside="open = false">
+  <!-- Trigger Button -->
+  <button
+    type="button"
+    id="user-menu-button"
+    aria-haspopup="menu"
+    :aria-expanded="open.toString()"
+    aria-controls="user-menu"
+    aria-label="User menu"
+    @click="open = !open"
+    class="dropdown-toggle flex items-center text-gray-700 dark:text-gray-400"
+  >
+    <span class="me-3 h-11 w-11 overflow-hidden rounded-lg">
+      <img src="images/user/owner.png" alt="User" class="size-11" />
+    </span>
+
+    <span class="me-1 block text-sm font-medium">Admin</span>
+
+    <svg
+      class="size-5 text-gray-500 transition-transform duration-200 dark:text-gray-400"
+      :class="open ? 'rotate-180' : 'rotate-0'"
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4.792 7.396L10 12.604l5.208-5.208"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+
+  <!-- Dropdown Menu Content -->
+  <div
+    x-cloak
+    x-show="open"
+    id="user-menu"
+    role="menu"
+    aria-orientation="vertical"
+    aria-labelledby="user-menu-button"
+    tabindex="-1"
+    @keydown.escape.stop="open = false"
+    x-transition:enter="animate-in fade-in-0 zoom-in-95 duration-100"
+    x-transition:leave="animate-out fade-out-0 zoom-out-95 fill-mode-forwards duration-75"
+    class="absolute right-0 z-50 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg outline-none dark:border-gray-800 dark:bg-[#1E2635]"
+  >
+    <!-- Sign Out (Destructive) -->
+    <a
+      href="/console/signin"
+      id="sign-out"
+      role="menuitem"
+      class="group/dropdown-menu-item relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 outline-hidden transition-colors duration-200 select-none hover:bg-red-50 hover:text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 dark:focus:bg-red-500/10 dark:focus:text-red-400"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        class="size-5 text-red-500 dark:text-red-400"
+      >
+        <path
+          d="M4 12h7.75M8 8l-3.998 4 3.997 4M9.75 4.996V4.25a1.5 1.5 0 011.5-1.5h6a1.5 1.5 0 011.5 1.5v15.5a1.5 1.5 0 01-1.5 1.5h-6a1.5 1.5 0 01-1.5-1.5V19"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span>Sign out</span>
+    </a>
+  </div>
+</div>

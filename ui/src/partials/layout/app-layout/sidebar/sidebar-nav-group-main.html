@@ -1,0 +1,93 @@
+<!-- Menu Group -->
+<div>
+  <h3 class="mb-4 text-xs leading-5 text-gray-400 uppercase">
+    <span
+      class="menu-group-title"
+      :class="sidebarToggle ? 'xl:hidden' : ''"
+      >MENU</span
+    >
+
+    <svg
+      :class="sidebarToggle ? 'xl:block hidden' : 'hidden'"
+      class="menu-group-icon mx-auto fill-current"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fill-rule="evenodd"
+        clip-rule="evenodd"
+        d="M5.99915 10.2451C6.96564 10.2451 7.74915 11.0286 7.74915 11.9951V12.0051C7.74915 12.9716 6.96564 13.7551 5.99915 13.7551C5.03265 13.7551 4.24915 12.9716 4.24915 12.0051V11.9951C4.24915 11.0286 5.03265 10.2451 5.99915 10.2451ZM17.9991 10.2451C18.9656 10.2451 19.7491 11.0286 19.7491 11.9951V12.0051C19.7491 12.9716 18.9656 13.7551 17.9991 13.7551C17.0326 13.7551 16.2491 12.9716 16.2491 12.0051V11.9951C16.2491 11.0286 17.0326 10.2451 17.9991 10.2451ZM13.7491 11.9951C13.7491 11.0286 12.9656 10.2451 11.9991 10.2451C11.0326 10.2451 10.2491 11.0286 10.2491 11.9951V12.0051C10.2491 12.9716 11.0326 13.7551 11.9991 13.7551C12.9656 13.7551 13.7491 12.9716 13.7491 12.0051V11.9951Z"
+        fill="currentColor"
+      />
+    </svg>
+  </h3>
+
+  <ul class="mb-6 flex flex-col gap-1">
+    <!-- Menu Item Documents -->
+    <li>
+      <a
+        href="/console/documents"
+        class="group menu-item"
+        :class="page === 'documents' ? 'menu-item-active' : 'menu-item-inactive'"
+      >
+        <svg
+          :class="page === 'documents' ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M3.25 5.5C3.25 4.25736 4.25736 3.25 5.5 3.25H18.5C19.7426 3.25 20.75 4.25736 20.75 5.5V18.5C20.75 19.7426 19.7426 20.75 18.5 20.75H5.5C4.25736 20.75 3.25 19.7426 3.25 18.5V5.5ZM5.5 4.75C5.08579 4.75 4.75 5.08579 4.75 5.5V8.58325L19.25 8.58325V5.5C19.25 5.08579 18.9142 4.75 18.5 4.75H5.5ZM19.25 10.0833H15.416V13.9165H19.25V10.0833ZM13.916 10.0833L10.083 10.0833V13.9165L13.916 13.9165V10.0833ZM8.58301 10.0833H4.75V13.9165H8.58301V10.0833ZM4.75 18.5V15.4165H8.58301V19.25H5.5C5.08579 19.25 4.75 18.9142 4.75 18.5ZM10.083 19.25V15.4165L13.916 15.4165V19.25H10.083ZM15.416 19.25V15.4165H19.25V18.5C19.25 18.9142 18.9142 19.25 18.5 19.25H15.416Z"
+            fill="currentColor"
+          />
+        </svg>
+
+        <span
+          class="menu-item-text"
+          :class="sidebarToggle ? 'xl:hidden' : ''"
+        >
+          Documents
+        </span>
+      </a>
+    </li>
+    <!-- Menu Item Tenants -->
+    <li>
+      <a
+        href="/console/tenants"
+        class="group menu-item"
+        :class="page === 'tenants' ? 'menu-item-active' : 'menu-item-inactive'"
+      >
+        <svg
+          :class="page === 'tenants' ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M9.5 8.5a2.75 2.75 0 1 1 5 0 2.75 2.75 0 0 1-5 0ZM4.5 7.5a2.25 2.25 0 1 1 3.936 1.496 5.68 5.68 0 0 0-3.444 3.25.75.75 0 0 1-1.409-.517 7.18 7.18 0 0 1 4.114-4.243A2.25 2.25 0 0 1 4.5 7.5Zm12.914 1.496A2.25 2.25 0 1 1 15.07 6a2.25 2.25 0 0 1-1.146 3.006 7.18 7.18 0 0 1 4.114 4.243.75.75 0 0 1-1.409.517 5.68 5.68 0 0 0-3.444-3.25 2.247 2.247 0 0 1-1.542-.907ZM12 13.25c2.843 0 5.464 1.197 6.918 3.61a.75.75 0 0 1-.036.848.75.75 0 0 1-.608.317H5.726a.75.75 0 0 1-.644-.365a.75.75 0 0 1-.036-.8C6.5 14.447 9.157 13.25 12 13.25Z"
+            fill="currentColor"
+          />
+        </svg>
+
+        <span
+          class="menu-item-text"
+          :class="sidebarToggle ? 'xl:hidden' : ''"
+        >
+          Tenants
+        </span>
+      </a>
+    </li>
+    <!-- Menu Item Tenants -->
+  </ul>
+</div>

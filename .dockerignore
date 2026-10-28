@@ -1,0 +1,7 @@
+ui/node_modules
+ui/build
+__pycache__
+*.pyc
+.pytest_cache
+data
+.env

@@ -9,6 +9,26 @@
     />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Sign in | LocalRAG</title>
+    <script>window.LOCALRAG_APP_NAME = window.LOCALRAG_APP_NAME || "LocalRAG";</script>
+    <script src="/console/config.js" onerror="window.LOCALRAG_APP_NAME = window.LOCALRAG_APP_NAME || 'LocalRAG';"></script>
+    <script>
+      (function () {
+        var name = (window.LOCALRAG_APP_NAME || "LocalRAG").trim() || "LocalRAG";
+        var apply = function () {
+          document.querySelectorAll(".app-brand").forEach(function (el) {
+            el.textContent = name;
+          });
+          if (document.title && document.title.indexOf("LocalRAG") !== -1) {
+            document.title = document.title.replace("LocalRAG", name);
+          }
+        };
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", apply);
+        } else {
+          apply();
+        }
+      })();
+    </script>
   </head>
   <body
     x-data="{ page: 'signin', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
@@ -30,7 +50,7 @@
           <div class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
             <a href="/console/documents" class="mb-8 inline-block">
               <span
-                class="text-2xl font-semibold text-gray-800 dark:text-white"
+                class="app-brand text-2xl font-semibold text-gray-800 dark:text-white"
                 >LocalRAG</span
               >
             </a>

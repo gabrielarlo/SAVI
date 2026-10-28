@@ -58,7 +58,7 @@ def create_app(config: Config | None = None) -> FastAPI:
                     conn.close()
         yield
 
-    app = FastAPI(title="LocalRAG", lifespan=lifespan)
+    app = FastAPI(title=config.app_name, lifespan=lifespan)
     app.state.config = config
     install_error_handlers(app)
     app.include_router(admin_router)
@@ -97,7 +97,15 @@ def create_app(config: Config | None = None) -> FastAPI:
             import json
 
             return Response(
-                f"window.LOCALRAG_CODE_NAME = {json.dumps(config.code_name or 'Assistant')};",
+                "window.LOCALRAG_CODE_NAME = "
+                + json.dumps(config.code_name or "Assistant")
+                + ";\n"
+                + "window.LOCALRAG_APP_NAME = "
+                + json.dumps(config.app_name)
+                + ";\n"
+                + "window.LOCALRAG_APP_SHORT_DESCRIPTION = "
+                + json.dumps(config.app_short_description)
+                + ";",
                 media_type="application/javascript",
             )
 

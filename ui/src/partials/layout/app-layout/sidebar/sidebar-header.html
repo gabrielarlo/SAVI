@@ -3,12 +3,17 @@
   :class="sidebarToggle ? 'xl:justify-center' : 'justify-between'"
   class="sidebar-header flex items-center gap-2 py-8"
 >
-  <a href="/console/documents" class="flex items-center">
+  <a href="/console/documents" class="flex items-center flex-col items-start">
     <span class="sr-only">LocalRAG home</span>
     <span
-      class="text-lg font-semibold text-gray-800 dark:text-white"
+      class="app-brand text-lg font-semibold text-gray-800 dark:text-white"
       :class="sidebarToggle ? 'xl:hidden' : ''"
       >LocalRAG</span
+    >
+    <span
+      class="app-short-desc text-xs text-gray-500 dark:text-gray-400"
+      :class="sidebarToggle ? 'xl:hidden' : ''"
+      ></span
     >
     <span
       class="hidden size-8 items-center justify-center rounded-lg bg-brand-500 text-xs font-bold text-white"

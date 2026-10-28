@@ -336,10 +336,6 @@ function initDocuments() {
     dialog.close();
   });
 
-  document.getElementById("sign-out").addEventListener("click", () => {
-    sessionStorage.removeItem(SECRET_KEY);
-  });
-
   load().catch((failure) => window.alert(failure.message));
 }
 

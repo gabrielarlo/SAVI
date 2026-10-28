@@ -18,7 +18,13 @@ DEFAULT_ADMIN_USERNAME: str | None = None
 DEFAULT_ADMIN_PASSWORD: str | None = None
 DEFAULT_CODE_NAME: str | None = None
 DEFAULT_COMPANY_NAME: str | None = None
+DEFAULT_APP_NAME = "LocalRAG"
+DEFAULT_APP_SHORT_DESCRIPTION: str | None = None
 DEFAULT_CHAT_MODEL = "llama3.2:3b"
+DEFAULT_WHISPER_MODEL = "small"
+DEFAULT_TTS_MODEL = "phonon"
+DEFAULT_TTS_VOICE: str | None = None
+DEFAULT_WHISPER_LANGUAGE: str | None = None
 
 
 @dataclass(frozen=True)
@@ -33,7 +39,13 @@ class Config:
     default_admin_password: str | None = DEFAULT_ADMIN_PASSWORD
     code_name: str | None = DEFAULT_CODE_NAME  # chatbot persona name
     company_name: str | None = DEFAULT_COMPANY_NAME  # company name for the assistant
+    app_name: str = DEFAULT_APP_NAME  # application display name
+    app_short_description: str | None = DEFAULT_APP_SHORT_DESCRIPTION  # short tagline
     chat_model: str = DEFAULT_CHAT_MODEL
+    whisper_model: str = DEFAULT_WHISPER_MODEL
+    whisper_language: str | None = DEFAULT_WHISPER_LANGUAGE
+    tts_model: str = DEFAULT_TTS_MODEL
+    tts_voice: str | None = DEFAULT_TTS_VOICE
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -55,5 +67,11 @@ class Config:
             default_admin_password=lookup("DEFAULT_ADMIN_PASSWORD"),
             code_name=lookup("CODE_NAME"),
             company_name=lookup("COMPANY_NAME"),
+            app_name=lookup("APP_NAME") or DEFAULT_APP_NAME,
+            app_short_description=lookup("APP_SHORT_DESCRIPTION"),
             chat_model=lookup("CHAT_MODEL") or DEFAULT_CHAT_MODEL,
+            whisper_model=lookup("WHISPER_MODEL") or DEFAULT_WHISPER_MODEL,
+            whisper_language=lookup("WHISPER_LANGUAGE"),
+            tts_model=lookup("TTS_MODEL") or DEFAULT_TTS_MODEL,
+            tts_voice=lookup("TTS_VOICE"),
         )

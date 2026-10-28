@@ -12,6 +12,7 @@ const messages = document.getElementById("chat-messages");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("chat-input");
 const newBtn = document.getElementById("chat-new");
+const mic = document.getElementById("chat-mic");
 
 let userScrolledUp = false;
 
@@ -190,5 +191,83 @@ if (form && input && messages) {
       loading.remove();
       appendAndPersist("assistant", error.message || "Request failed");
     }
+  });
+}
+
+
+let mediaRecorder = null;
+let audioChunks = [];
+
+function getAdminHeaders() {
+  const token = sessionStorage.getItem("localrag.sessionToken");
+  const secret = sessionStorage.getItem("localrag.adminSecret");
+  const headers = {};
+  if (token) headers["X-Session-Token"] = token;
+  else if (secret) headers["X-Admin-Secret"] = secret;
+  return headers;
+}
+
+async function sendVoice(blob) {
+  const form = new FormData();
+  form.append("file", blob, "voice.webm");
+  const response = await fetch("/admin/chat/voice", {
+    method: "POST",
+    headers: getAdminHeaders(),
+    body: form,
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.error?.message || `Request failed (${response.status})`);
+  return body;
+}
+
+if (mic) {
+  mic.addEventListener("click", async () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      const icon = document.getElementById("chat-mic-icon");
+      if (icon) icon.classList.remove("animate-pulse", "text-red-500");
+      return;
+    }
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      alert("Voice recording not supported in this browser.");
+      return;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) audioChunks.push(e.data);
+    };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      const loading = document.createElement("div");
+      loading.className = "flex justify-start";
+      const spinner = document.createElement("div");
+      spinner.className = "max-w-[80%] rounded-2xl bg-gray-100 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-gray-100";
+      spinner.textContent = "Transcribing...";
+      loading.appendChild(spinner);
+      if (messages) {
+        messages.appendChild(loading);
+        scrollToBottom();
+      }
+      try {
+        const body = await sendVoice(blob);
+        if (loading.parentNode) loading.remove();
+        if (body.transcript) appendAndPersist("user", body.transcript);
+        const reply = body.response || "";
+        appendAndPersist("assistant", reply);
+        if (body.audio) {
+          const audio = new Audio(`data:audio/wav;base64,${body.audio}`);
+          audio.play().catch(() => {});
+        }
+      } catch (error) {
+        if (loading.parentNode) loading.remove();
+        appendAndPersist("assistant", error.message || "Voice request failed");
+      }
+    };
+    mediaRecorder.start();
+    const icon = document.getElementById("chat-mic-icon");
+    if (icon) icon.classList.add("animate-pulse", "text-red-500");
   });
 }

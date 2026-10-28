@@ -136,3 +136,94 @@ def generate_answer(
     except Exception:  # ponytail: any Ollama failure degrades to fallback answer
         logger.warning("answer generation failed: %s", url, exc_info=True)
         return "Answer unavailable; see sources."
+
+
+import base64
+import io
+
+
+def transcribe_audio(audio_bytes: bytes, model_size: str = "small", language: str | None = None) -> str:
+    """Transcribe audio bytes to text, normalizing via ffmpeg first."""
+    import os
+    import subprocess
+    import tempfile
+
+    tmp_in = None
+    tmp_out = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(audio_bytes)
+            tmp_in = f.name
+        tmp_out = tmp_in + ".wav"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                tmp_in,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-c:a",
+                "pcm_s16le",
+                tmp_out,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
+        from faster_whisper import WhisperModel
+
+        model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        segments, _info = model.transcribe(
+            tmp_out,
+            language=language,
+            initial_prompt="LocalRAG documents, resumes, tenants, chunks.",
+            beam_size=10,
+            vad_filter=True,
+            condition_on_previous_text=False,
+            temperature=0.0,
+        )
+        return " ".join(segment.text for segment in segments).strip()
+    except Exception:  # ponytail: any STT failure degrades to empty transcript
+        logger.warning("transcription failed", exc_info=True)
+        return ""
+    finally:
+        for path in (tmp_in, tmp_out):
+            if path:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+
+def synthesize_speech(
+    text: str,
+    ollama_url: str,
+    model: str = "phonon",
+    voice: str | None = None,
+    client: httpx.Client | None = None,
+) -> bytes | None:
+    """Synthesize text to audio bytes via Ollama, returning None on failure."""
+    url = f"{ollama_url}/api/generate"
+    payload: dict = {"model": model, "prompt": text, "stream": False}
+    if voice:
+        payload["voice"] = voice
+    try:
+        if client is None:
+            with httpx.Client(timeout=30.0) as http:
+                response = http.post(url, json=payload)
+        else:
+            response = client.post(url, json=payload)
+        response.raise_for_status()
+        data = (response.json().get("response") or "").strip()
+        if not data:
+            return None
+        try:
+            return base64.b64decode(data, validate=True)
+        except Exception:
+            return data.encode("utf-8")
+    except Exception:  # ponytail: any TTS failure degrades to no audio
+        logger.warning("speech synthesis failed: %s", url, exc_info=True)
+        return None

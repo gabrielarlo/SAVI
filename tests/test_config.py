@@ -34,3 +34,22 @@ def test_supplied_values_override_defaults():
 
 def test_unparseable_port_falls_back_to_default():
     assert Config.from_lookup({"PORT": "not-a-port"}.get).port == 8080
+
+
+def test_app_name_defaults_to_localrag():
+    config = Config.from_lookup(lambda _: None)
+
+    assert config.app_name == "LocalRAG"
+    assert config.app_short_description is None
+
+
+def test_app_name_and_short_description_override_defaults():
+    values = {
+        "APP_NAME": "SAVI",
+        "APP_SHORT_DESCRIPTION": "SCB AI Virtual Intelligence",
+    }
+
+    config = Config.from_lookup(values.get)
+
+    assert config.app_name == "SAVI"
+    assert config.app_short_description == "SCB AI Virtual Intelligence"

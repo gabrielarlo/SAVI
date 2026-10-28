@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+import base64
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -28,6 +29,8 @@ from app.services import (
     generate_answer,
     ingest_document,
     store_chunks,
+    synthesize_speech,
+    transcribe_audio,
 )
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
@@ -539,3 +542,117 @@ def archive_user(
     )
     db.commit()
     return dict(_user_or_404(db, user_id))
+
+
+@admin_router.post("/chat/voice")
+def admin_chat_voice(
+    file: UploadFile = File(...),
+    tenant_id: str | None = Form(None),
+    role: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+    config: Config = Depends(get_config),
+):
+    if getattr(role, "role", "administrator") == "account_manager" and not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+
+    data = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large: limit is 10 MB")
+
+    transcript = transcribe_audio(data, config.whisper_model, config.whisper_language)
+    if not transcript:
+        raise HTTPException(status_code=400, detail="No speech detected in the audio; please try again.")
+
+    sql = "SELECT id, tenant_id, content FROM chunks"
+    params: tuple = ()
+    if tenant_id:
+        sql += " WHERE tenant_id = ?"
+        params = (tenant_id,)
+    sql += " LIMIT 5"
+    rows = db.execute(sql, params).fetchall()
+    sources = [
+        {"id": row["id"], "tenant_id": row["tenant_id"], "content": row["content"]}
+        for row in rows
+    ]
+
+    count_sql = "SELECT COUNT(*) AS n FROM documents"
+    title_sql = "SELECT title FROM documents"
+    count_params: tuple = ()
+    title_params: tuple = ()
+    if tenant_id:
+        count_sql += " WHERE tenant_id = ?"
+        title_sql += " WHERE tenant_id = ?"
+        count_params = (tenant_id,)
+        title_params = (tenant_id,)
+    doc_count = db.execute(count_sql, count_params).fetchone()["n"]
+    titles = [r["title"] for r in db.execute(title_sql, title_params).fetchall()]
+    if len(titles) > 10:
+        titles = titles[:10] + [f"... ({len(titles) - 10} more)"]
+    extra_context = f"There are {doc_count} documents. Titles: {', '.join(titles)}."
+
+    user_name = getattr(role, "username", None) or "admin"
+    response = generate_answer(
+        transcript,
+        sources,
+        config.ollama_url,
+        config.chat_model,
+        config.code_name,
+        config.company_name,
+        user_name,
+        extra_context,
+    )
+
+    audio_bytes = synthesize_speech(
+        response, config.ollama_url, config.tts_model, config.tts_voice
+    )
+    audio = base64.b64encode(audio_bytes).decode() if audio_bytes else None
+
+    return {
+        "tenant_id": tenant_id,
+        "transcript": transcript,
+        "response": response,
+        "sources": sources,
+        "audio": audio,
+    }
+
+
+@external_router.post("/chat/voice")
+def tenant_chat_voice(
+    file: UploadFile = File(...),
+    role: TenantRole = Depends(require_tenant),
+    db=Depends(get_db),
+    config: Config = Depends(get_config),
+):
+    data = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large: limit is 10 MB")
+
+    transcript = transcribe_audio(data, config.whisper_model, config.whisper_language)
+    if not transcript:
+        raise HTTPException(status_code=400, detail="No speech detected in the audio; please try again.")
+
+    rows = db.execute(
+        "SELECT id, content FROM chunks WHERE tenant_id = ? LIMIT 3",
+        (role.tenant_id,),
+    ).fetchall()
+    sources = [{"id": row["id"], "content": row["content"]} for row in rows]
+
+    response = generate_answer(
+        transcript,
+        [{"id": s["id"], "content": s["content"]} for s in sources],
+        config.ollama_url,
+        config.chat_model,
+    )
+
+    audio_bytes = synthesize_speech(
+        response, config.ollama_url, config.tts_model, config.tts_voice
+    )
+    audio = base64.b64encode(audio_bytes).decode() if audio_bytes else None
+
+    return {
+        "tenant_id": role.tenant_id,
+        "transcript": transcript,
+        "response": response,
+        "sources": sources,
+        "audio": audio,
+    }

@@ -14,6 +14,8 @@ services:
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
       - CODE_NAME=${CODE_NAME:-}
       - COMPANY_NAME=${COMPANY_NAME:-}
+      - APP_NAME=${APP_NAME:-}
+      - APP_SHORT_DESCRIPTION=${APP_SHORT_DESCRIPTION:-}
       - CHAT_MODEL=${CHAT_MODEL:-llama3.2:3b}
     volumes:
       - sqlite_data:/app/data

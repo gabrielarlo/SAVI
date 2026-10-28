@@ -35,9 +35,38 @@
             <div x-data="{ pageTitle: 'Dashboard' }">
               <include src="./partials/common/page-breadcrumb.html" />
             </div>
-            <div class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-              <p class="text-sm text-gray-500 dark:text-gray-400">Dashboard (placeholder).</p>
+            <div class="flex items-center justify-end gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <svg class="h-3 w-3 text-green-500" viewBox="0 0 12 12" aria-hidden="true">
+                <circle cx="6" cy="6" r="5" fill="currentColor" class="animate-pulse" />
+              </svg>
+              <span>Live</span>
             </div>
+            <div id="stats-error" class="hidden rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"></div>
+
+            <section class="space-y-3">
+              <h3 class="text-base font-medium text-gray-800 dark:text-white/90">Overview</h3>
+              <div id="section-overview" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="text-base font-medium text-gray-800 dark:text-white/90">Tenants</h3>
+              <div id="section-tenants" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="text-base font-medium text-gray-800 dark:text-white/90">Users</h3>
+              <div id="section-users" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="text-base font-medium text-gray-800 dark:text-white/90">Activity</h3>
+              <div id="section-activity" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="text-base font-medium text-gray-800 dark:text-white/90">API keys</h3>
+              <div id="section-apikeys" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"></div>
+            </section>
           </div>
         </main>
       </div>

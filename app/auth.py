@@ -8,6 +8,7 @@ import logging
 import os
 import secrets
 import time
+import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
 from typing import Iterator
@@ -124,12 +125,42 @@ def get_role(
 
     if x_api_key:
         row = db.execute(
-            "SELECT id, archived_at FROM tenants WHERE api_key = ?", (x_api_key,)
+            "SELECT id, archived_at, auto_rotate, rotate_days, api_key_expires_at "
+            "FROM tenants WHERE api_key = ?",
+            (x_api_key,),
         ).fetchone()
-        if row is not None and row["archived_at"] is None:
-            return TenantRole(row["id"])
         if row is not None and row["archived_at"] is not None:
             raise HTTPException(status_code=403, detail="Tenant account is archived")
+        if row is not None and row["archived_at"] is None:
+            expired = False
+            expires = row["api_key_expires_at"]
+            if expires is not None:
+                try:
+                    from datetime import datetime
+
+                    if datetime.fromisoformat(str(expires).replace(" ", "T")) < datetime.utcnow():
+                        expired = True
+                except ValueError:
+                    expired = False
+            if not expired:
+                return TenantRole(row["id"])
+            # expired
+            if row["auto_rotate"]:
+                try:
+                    new_key = f"lrk_{uuid.uuid4().hex}"
+                    db.execute(
+                        "UPDATE tenants SET api_key = ?, api_key_created_at = "
+                        "CURRENT_TIMESTAMP, api_key_expires_at = datetime('now', "
+                        "'+' || rotate_days || ' days') WHERE id = ?",
+                        (new_key, row["id"]),
+                    )
+                    db.commit()
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=401, detail="API key expired and rotated"
+                )
+            raise HTTPException(status_code=401, detail="API key expired")
 
     raise HTTPException(status_code=401, detail=INVALID_CREDENTIALS)
 

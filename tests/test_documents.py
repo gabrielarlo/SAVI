@@ -48,7 +48,8 @@ class TestListTenants:
         assert response.status_code == 200
         body = response.json()
         assert [entry["name"] for entry in body] == ["acme", "beta"]
-        assert set(body[0]) == {"id", "name", "created_at", "archived_at"}
+        assert set(body[0]) == {"id", "name", "created_at", "archived_at",
+                               "auto_rotate", "rotate_days", "api_key_expires_at"}
 
     def test_empty_list(self, client, admin_headers):
         response = client.get("/admin/tenants", headers=admin_headers)

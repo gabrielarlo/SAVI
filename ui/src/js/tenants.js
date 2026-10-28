@@ -59,20 +59,41 @@ function initTenants() {
   const editDialog = document.getElementById("edit-dialog");
   const editForm = document.getElementById("edit-form");
   const editName = document.getElementById("edit-name");
+  const editRotate = document.getElementById("edit-rotate");
   const editMessage = document.getElementById("edit-message");
 
   let tenantRows = [];
 
   async function load() {
     const tenants = await request("/admin/tenants?include_archived=true");
+    await Promise.all(
+      tenants.map(async (tenant) => {
+        try {
+          const res = await request(`/admin/tenants/${encodeURIComponent(tenant.id)}/api-key`);
+          tenant.api_key = res.api_key;
+        } catch (e) {
+          tenant.api_key = null;
+        }
+      }),
+    );
     setTenants(tenants);
     tenantRows = tenants;
     render();
   }
 
+  function isExpiring(tenant) {
+    if (!tenant.api_key_expires_at) return false;
+    const exp = new Date(String(tenant.api_key_expires_at).replace(" ", "T") + "Z");
+    if (Number.isNaN(exp.getTime())) return false;
+    const now = new Date();
+    const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return exp <= in30;
+  }
+
   function matchesFilter(tenant) {
     if (filter.value === "active") return !tenant.archived_at;
     if (filter.value === "archived") return Boolean(tenant.archived_at);
+    if (filter.value === "expiring") return isExpiring(tenant);
     return true;
   }
 
@@ -95,6 +116,14 @@ function initTenants() {
         "px-5 py-4 font-mono text-xs text-gray-500 dark:text-gray-400";
       shortId.textContent = tenant.id.slice(0, 8);
 
+      const apiKeyCell = document.createElement("td");
+      apiKeyCell.className = "px-5 py-4 font-mono text-xs text-gray-500 dark:text-gray-400";
+      const masked = document.createElement("span");
+      masked.textContent = tenant.api_key
+        ? tenant.api_key.slice(0, 8) + "..." + tenant.api_key.slice(-4)
+        : "—";
+      apiKeyCell.append(masked);
+
       const created = document.createElement("td");
       created.className =
         "px-5 py-4 text-sm whitespace-nowrap text-gray-500 dark:text-gray-400";
@@ -110,20 +139,50 @@ function initTenants() {
       const rename = button("Edit", `mr-2 ${QUIET_BUTTON}`);
       rename.addEventListener("click", () => openEdit(tenant));
 
-      actions.append(rename);
+      const copyKey = button("Copy key", `mr-2 ${QUIET_BUTTON}`);
+      copyKey.addEventListener("click", async () => {
+        try {
+          const res = await request(`/admin/tenants/${encodeURIComponent(tenant.id)}/api-key`);
+          if (navigator.clipboard) await navigator.clipboard.writeText(res.api_key);
+          window.alert("API key copied.");
+        } catch (e) {
+          window.alert(e.message);
+        }
+      });
+
+      actions.append(rename, copyKey);
+
       if (!tenant.archived_at) {
+        const regen = button("Regenerate", `mr-2 ${QUIET_BUTTON}`);
+        regen.addEventListener("click", async () => {
+          if (!window.confirm(`Regenerate API key for "${tenant.name}"? The old key stops working.`)) return;
+          try {
+            const res = await request(`/admin/tenants/${encodeURIComponent(tenant.id)}/regenerate-key`, { method: "POST" });
+            keyName.textContent = tenant.name;
+            keyValue.textContent = res.api_key;
+            keyDialog.showModal();
+            load();
+          } catch (e) {
+            window.alert(e.message);
+          }
+        });
+        actions.append(regen);
+
         const archive = button("Archive", WARN_BUTTON);
         archive.addEventListener("click", () => archiveTenant(tenant));
         actions.append(archive);
       }
 
-      row.append(name, shortId, created, status, actions);
+      row.append(name, shortId, apiKeyCell, created, status, actions);
       body.append(row);
     }
   }
 
   function openEdit(tenant) {
     editName.value = tenant.name;
+    if (editRotate) {
+      editRotate.value = tenant.rotate_days == null ? "" : String(tenant.rotate_days);
+    }
     editMessage.classList.add("hidden");
     editDialog.dataset.tenantId = tenant.id;
     editDialog.showModal();
@@ -191,10 +250,12 @@ function initTenants() {
       return;
     }
     try {
+      const rotateRaw = editRotate ? editRotate.value : "";
+      const rotateDays = rotateRaw === "" ? null : Number(rotateRaw);
       await request(`/admin/tenants/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, rotate_days: rotateDays }),
       });
       editForm.reset();
       editDialog.close();
@@ -224,6 +285,12 @@ function initTenants() {
     load().catch((failure) => window.alert(failure.message));
   });
   document.getElementById("sign-out").addEventListener("click", signOut);
+
+  const params = new URLSearchParams(window.location.search);
+  const initialFilter = params.get("filter");
+  if (initialFilter && ["all", "active", "archived", "expiring"].includes(initialFilter)) {
+    filter.value = initialFilter;
+  }
 
   load().catch((failure) => window.alert(failure.message));
 }

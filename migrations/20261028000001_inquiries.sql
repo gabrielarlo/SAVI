@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS inquiries (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE SET NULL
+);

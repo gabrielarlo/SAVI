@@ -34,7 +34,8 @@ class TestListTenants:
 
         body = response.json()
         assert [entry["id"] for entry in body] == [first["tenant_id"]]
-        assert set(body[0]) == {"id", "name", "created_at", "archived_at"}
+        assert set(body[0]) == {"id", "name", "created_at", "archived_at",
+                               "auto_rotate", "rotate_days", "api_key_expires_at"}
         assert body[0]["archived_at"] is None
         assert list(body[0]) != sorted(body[0]) or "api_key" not in body[0]
 
@@ -74,7 +75,8 @@ class TestTenantDetail:
 
         body = response.json()
         assert response.status_code == 200
-        assert set(body) == {"id", "name", "created_at", "archived_at"}
+        assert set(body) == {"id", "name", "created_at", "archived_at",
+                            "auto_rotate", "rotate_days", "api_key_expires_at"}
         assert body["archived_at"] is not None
 
     def test_unknown_tenant_is_404(self, client, admin_headers):

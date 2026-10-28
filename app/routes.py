@@ -42,8 +42,19 @@ class CreateTenantRequest(BaseModel):
     name: str
 
 
+class _Unset:
+    pass
+
+
+_UNSET = _Unset()
+
+
 class UpdateTenantRequest(BaseModel):
-    name: str
+    model_config = {"arbitrary_types_allowed": True}
+
+    name: str | None = None
+    auto_rotate: bool | None = None
+    rotate_days: int | None | _Unset = _UNSET
 
 
 class CreateUserRequest(BaseModel):
@@ -95,7 +106,8 @@ def _user_or_404(db, user_id: str):
 
 def _tenant_or_404(db, tenant_id: str):
     row = db.execute(
-        "SELECT id, name, created_at, archived_at FROM tenants WHERE id = ?",
+        "SELECT id, name, created_at, archived_at, auto_rotate, rotate_days, "
+        "api_key_expires_at FROM tenants WHERE id = ?",
         (tenant_id,),
     ).fetchone()
     if row is None:
@@ -122,7 +134,9 @@ def create_tenant(
     tenant_id = str(uuid.uuid4())
     api_key = f"lrk_{uuid.uuid4().hex}"
     db.execute(
-        "INSERT INTO tenants (id, name, api_key) VALUES (?, ?, ?)",
+        "INSERT INTO tenants (id, name, api_key, api_key_created_at, "
+        "api_key_expires_at, auto_rotate, rotate_days) "
+        "VALUES (?, ?, ?, CURRENT_TIMESTAMP, datetime('now', '+90 days'), 1, 90)",
         (tenant_id, payload.name, api_key),
     )
     db.commit()
@@ -135,11 +149,89 @@ def list_tenants(
     _: AdminRole = Depends(require_admin),
     db=Depends(get_db),
 ):
-    sql = "SELECT id, name, created_at, archived_at FROM tenants"
+    sql = "SELECT id, name, created_at, archived_at, auto_rotate, rotate_days, " \
+          "api_key_expires_at FROM tenants"
     if not include_archived:
         sql += " WHERE archived_at IS NULL"
     sql += " ORDER BY created_at ASC"
     return [dict(row) for row in db.execute(sql).fetchall()]
+
+
+@admin_router.get("/stats")
+def system_stats(
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    from datetime import date, timedelta, datetime
+
+    tenants_total = db.execute("SELECT COUNT(*) FROM tenants").fetchone()[0]
+    tenants_active = db.execute(
+        "SELECT COUNT(*) FROM tenants WHERE archived_at IS NULL"
+    ).fetchone()[0]
+    tenants_archived = tenants_total - tenants_active
+
+    users_total = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    users_active = db.execute(
+        "SELECT COUNT(*) FROM users WHERE archived_at IS NULL"
+    ).fetchone()[0]
+    users_archived = users_total - users_active
+
+    # Per-day inquiry counts for the last 7 days, zero-filled.
+    today = date.today()
+    days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    day_keys = [d.isoformat() for d in days]
+    counts = {k: 0 for k in day_keys}
+    for row in db.execute(
+        "SELECT date(created_at) AS d, COUNT(*) AS n FROM inquiries "
+        "WHERE date(created_at) >= ? GROUP BY date(created_at)",
+        (day_keys[0],),
+    ).fetchall():
+        if row["d"] in counts:
+            counts[row["d"]] = row["n"]
+
+    # API key rotation urgency (archived tenants excluded).
+    from datetime import datetime, timedelta
+
+    blue = orange = red = 0
+    now = datetime.utcnow()
+    red_cutoff = now + timedelta(days=10)
+    orange_cutoff = now + timedelta(days=30)
+    for row in db.execute(
+        "SELECT api_key_expires_at FROM tenants WHERE archived_at IS NULL"
+    ).fetchall():
+        exp = row["api_key_expires_at"]
+        if exp is None:
+            blue += 1
+            continue
+        try:
+            exp_dt = datetime.fromisoformat(str(exp).replace(" ", "T"))
+        except ValueError:
+            blue += 1
+            continue
+        if exp_dt <= red_cutoff:
+            red += 1
+        elif exp_dt <= orange_cutoff:
+            orange += 1
+        else:
+            blue += 1
+
+    return {
+        "tenants": tenants_total,
+        "tenants_active": tenants_active,
+        "tenants_archived": tenants_archived,
+        "documents": db.execute("SELECT COUNT(*) FROM documents").fetchone()[0],
+        "chunks": db.execute("SELECT COUNT(*) FROM chunks").fetchone()[0],
+        "users": users_total,
+        "users_active": users_active,
+        "users_archived": users_archived,
+        "inquiries": db.execute("SELECT COUNT(*) FROM inquiries").fetchone()[0],
+        "inquiries_per_day": [
+            {"date": k, "count": counts[k]} for k in day_keys
+        ],
+        "api_keys_blue": blue,
+        "api_keys_orange": orange,
+        "api_keys_red": red,
+    }
 
 
 @admin_router.get("/tenants/{tenant_id}")
@@ -159,9 +251,62 @@ def update_tenant(
     db=Depends(get_db),
 ):
     tenant = _tenant_or_404(db, tenant_id)
-    db.execute("UPDATE tenants SET name = ? WHERE id = ?", (payload.name, tenant_id))
+    if payload.name is not None:
+        db.execute("UPDATE tenants SET name = ? WHERE id = ?", (payload.name, tenant_id))
+    if payload.auto_rotate is not None:
+        db.execute(
+            "UPDATE tenants SET auto_rotate = ? WHERE id = ?",
+            (1 if payload.auto_rotate else 0, tenant_id),
+        )
+    if payload.rotate_days is not _UNSET:
+        if payload.rotate_days is not None and payload.rotate_days < 1:
+            raise HTTPException(status_code=400, detail="rotate_days must be >= 1")
+        db.execute(
+            "UPDATE tenants SET rotate_days = ? WHERE id = ?", (payload.rotate_days, tenant_id)
+        )
+        if payload.rotate_days is None:
+            db.execute(
+                "UPDATE tenants SET api_key_expires_at = NULL WHERE id = ?", (tenant_id,)
+            )
+        else:
+            db.execute(
+                "UPDATE tenants SET api_key_expires_at = datetime('now', '+' || ? || ' days') "
+                "WHERE id = ?",
+                (payload.rotate_days, tenant_id),
+            )
     db.commit()
     return dict(_tenant_or_404(db, tenant_id))
+
+
+@admin_router.get("/tenants/{tenant_id}/api-key")
+def get_tenant_api_key(
+    tenant_id: str,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    _tenant_or_404(db, tenant_id)
+    row = db.execute(
+        "SELECT api_key FROM tenants WHERE id = ?", (tenant_id,)
+    ).fetchone()
+    return {"api_key": row["api_key"]}
+
+
+@admin_router.post("/tenants/{tenant_id}/regenerate-key")
+def regenerate_tenant_api_key(
+    tenant_id: str,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    _tenant_or_404(db, tenant_id)
+    new_key = f"lrk_{uuid.uuid4().hex}"
+    db.execute(
+        "UPDATE tenants SET api_key = ?, api_key_created_at = CURRENT_TIMESTAMP, "
+        "api_key_expires_at = datetime('now', '+' || rotate_days || ' days') "
+        "WHERE id = ?",
+        (new_key, tenant_id),
+    )
+    db.commit()
+    return {"api_key": new_key}
 
 
 @admin_router.post("/tenants/{tenant_id}/archive")
@@ -355,6 +500,14 @@ def admin_chat(
         user_name,
         extra_context,
     )
+    try:
+        db.execute(
+            "INSERT INTO inquiries (id, tenant_id) VALUES (?, ?)",
+            (str(uuid.uuid4()), payload.tenant_id),
+        )
+        db.commit()
+    except Exception:  # ponytail: inquiry tracking must never break chat
+        pass
     return {
         "tenant_id": payload.tenant_id,
         "response": response,
@@ -519,6 +672,14 @@ def tenant_chat(
         "SELECT id, content FROM chunks WHERE tenant_id = ? LIMIT 3",
         (role.tenant_id,),
     ).fetchall()
+    try:
+        db.execute(
+            "INSERT INTO inquiries (id, tenant_id) VALUES (?, ?)",
+            (str(uuid.uuid4()), role.tenant_id),
+        )
+        db.commit()
+    except Exception:  # ponytail: inquiry tracking must never break chat
+        pass
     return {
         "tenant_id": role.tenant_id,
         "response": "RAG response based on tenant context",

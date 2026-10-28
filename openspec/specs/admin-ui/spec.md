@@ -405,3 +405,195 @@ admin user endpoints with `400` or `403`.
 
 - **WHEN** an admin attempts to PATCH their own user record
 - **THEN** the service responds `400` or `403`
+
+### Requirement: Dashboard system stats
+
+The dashboard page at `/console` SHALL display system stats fetched from
+`GET /admin/stats`.
+
+- The page MUST render one card per metric returned by `/admin/stats`
+  (tenants, documents, chunks, users).
+- Each card MUST show the metric label and its numeric value.
+- Metric values MUST be rendered as text, never as HTML.
+- If the stats request fails, the page MUST show an error message and MUST NOT
+  crash.
+
+#### Scenario: Stats cards render
+
+- **WHEN** an authenticated operator opens `/console` and `/admin/stats`
+  returns `{"tenants": 2, "documents": 3, "chunks": 9, "users": 1}`
+- **THEN** four cards are shown with labels Tenants, Documents, Chunks, and
+  Users and values `2`, `3`, `9`, and `1`
+
+#### Scenario: Stats request fails
+
+- **WHEN** `/admin/stats` returns an error
+- **THEN** an error message is shown on the dashboard and no unhandled
+  exception occurs
+
+### Requirement: Dashboard live refresh
+
+The dashboard page at `/console` SHALL refresh its stats automatically.
+
+- The page MUST poll `GET /admin/stats` on an interval of 3 to 5 seconds
+  while the page is visible.
+- Polling MUST pause when the page is hidden and resume when visible again.
+- A "Live" indicator (text plus an animated SVG dot) MUST be shown while
+  polling is active.
+
+#### Scenario: Auto refresh
+
+- **WHEN** an operator leaves the dashboard open for 6 seconds
+- **THEN** at least one additional `/admin/stats` request is made after the
+  initial load
+
+#### Scenario: Live indicator visible
+
+- **WHEN** the dashboard is loaded successfully
+- **THEN** a "Live" label and an animated dot are rendered
+
+#### Scenario: Pause when hidden
+
+- **WHEN** the page becomes hidden
+- **THEN** no further polling requests are made until it is visible again
+
+### Requirement: Dashboard inquiry metrics
+
+The dashboard SHALL display inquiry metrics returned by `/admin/stats`.
+
+- The page MUST render cards for total inquiries and inquiries today (or the
+  latest day's count).
+- Values MUST be rendered as text, never as HTML.
+
+#### Scenario: Inquiry cards render
+
+- **WHEN** `/admin/stats` returns `inquiries` equal to `5`
+- **THEN** a card shows the value `5`
+
+### Requirement: Dashboard visual polish
+
+The dashboard SHALL present a polished, responsive layout.
+
+- The stat cards MUST be laid out in a responsive grid (1 column on small
+  screens, 2 on medium, 4 on large).
+- The page MUST show loading placeholders while the first stats response is
+  pending.
+- Cards MUST use the shared TailAdmin card styling (rounded border, padding)
+  and consistent spacing.
+- Values MUST be rendered as text, never as HTML.
+
+#### Scenario: Responsive grid
+
+- **WHEN** the dashboard is viewed on a large screen
+- **THEN** four stat cards appear per row
+
+#### Scenario: Loading state
+
+- **WHEN** stats have not yet loaded
+- **THEN** placeholder cards are shown instead of empty space
+
+### Requirement: Tenant API key copy and regeneration UI
+
+The tenant management UI SHALL let operators copy and regenerate a tenant's
+API key.
+
+- Each tenant row MUST provide a "Copy" action that fetches and copies the
+  current API key to the clipboard.
+- Each tenant row MUST provide a "Regenerate" action requiring confirmation
+  before calling `POST /admin/tenants/{id}/regenerate-key`.
+- The regenerated key MUST be shown once in a modal with a copy button.
+
+#### Scenario: Copy key
+
+- **WHEN** an operator clicks "Copy" for a tenant
+- **THEN** the current API key is fetched and copied to the clipboard
+
+#### Scenario: Regenerate key
+
+- **WHEN** an operator confirms regeneration
+- **THEN** a new key is shown once in a modal with a copy button
+
+### Requirement: Tenant API key auto-rotation settings UI
+
+The tenant management UI SHALL allow configuring auto-rotation.
+
+- An edit form MUST allow toggling auto-rotation and selecting the rotation
+  interval from a dropdown of predefined common options (30, 60, 90, 180, 365
+  days, and "Forever" which sets `rotate_days` to `null`). Default is 90 days.
+- The tenant table MUST show expiry status (active/expired).
+
+#### Scenario: Configure auto-rotation
+
+- **WHEN** an operator sets auto-rotation to enabled with 30 days
+- **THEN** `PATCH /admin/tenants/{id}` is called with those settings
+
+### Requirement: Color-coded API key rotation metrics on dashboard
+
+The dashboard SHALL display API key rotation urgency metrics with color coding.
+
+- The page MUST render three cards labeled for blue, orange, and red states.
+- Each card's numeric value MUST be color-coded (blue, orange, red
+  respectively).
+- Values MUST be rendered as text, never as HTML.
+
+#### Scenario: Color-coded cards render
+
+- **WHEN** `/admin/stats` returns `api_keys_blue: 2`, `api_keys_orange: 1`,
+  `api_keys_red: 1`
+- **THEN** three cards show values `2`, `1`, `1` with blue, orange, and red
+  styling respectively
+
+### Requirement: Grouped dashboard metrics
+
+The dashboard SHALL group stat cards into labeled sections.
+
+- Sections MUST include Overview, Tenants, Users, Activity, and API keys.
+- Each section MUST contain its relevant cards.
+
+#### Scenario: Sections render
+
+- **WHEN** the dashboard loads
+- **THEN** cards are grouped under section headings
+
+### Requirement: Stat card icons and links
+
+Each stat card SHALL include an SVG icon and link to its management page.
+
+- The icon MUST be decorative (aria-hidden).
+- Clicking a card MUST navigate to the relevant console page.
+
+#### Scenario: Card navigates
+
+- **WHEN** an operator clicks the Tenants card
+- **THEN** the browser navigates to `/console/tenants`
+
+### Requirement: Tenant list filters
+
+The tenants page SHALL support filter query parameters.
+
+- `?filter=archived` MUST show only archived tenants.
+- `?filter=expiring` MUST show only tenants whose API key expires within 30
+  days.
+
+#### Scenario: Archived filter
+
+- **WHEN** `/console/tenants?filter=archived` is opened
+- **THEN** only archived tenants are listed
+
+#### Scenario: Expiring filter
+
+- **WHEN** `/console/tenants?filter=expiring` is opened
+- **THEN** only tenants with keys expiring within 30 days are listed
+
+### Requirement: Tenants table API key column
+
+The tenants table SHALL include an API key column.
+
+- The column MUST display a masked value (e.g. first 8 chars + ellipsis).
+- The column MUST provide a copy action that copies the full key.
+- Full keys MUST NOT be rendered in the DOM beyond the copy action.
+
+#### Scenario: API key column renders
+
+- **WHEN** an operator views the tenants table
+- **THEN** each row shows a masked API key and a copy control

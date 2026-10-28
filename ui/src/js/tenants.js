@@ -156,6 +156,7 @@ function initTenants() {
 
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!window.confirm("Create this tenant?")) return;
     const name = createName.value.trim();
     if (!name) {
       showMessage(createMessage, "Enter a tenant name.", true);
@@ -182,6 +183,7 @@ function initTenants() {
 
   editForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!window.confirm("Save changes to this tenant?")) return;
     const name = editName.value.trim();
     const id = editDialog.dataset.tenantId;
     if (!name) {

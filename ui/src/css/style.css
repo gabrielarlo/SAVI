@@ -825,3 +825,11 @@ html[dir="rtl"] .ai-settings-range {
 .ai-settings-range::-moz-range-thumb {
   @apply size-5 cursor-pointer appearance-none rounded-full border-2 border-brand-500 bg-white shadow-xs;
 }
+
+.modal-overlay {
+  @apply fixed inset-0 z-[99999] grid place-items-center bg-black/50;
+}
+
+.modal-panel {
+  @apply m-4 w-full max-w-md rounded-xl bg-white p-6 shadow-theme-lg dark:bg-gray-900;
+}

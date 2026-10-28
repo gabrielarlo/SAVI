@@ -81,12 +81,25 @@ function initUsers() {
 
       const actions = document.createElement("td");
       actions.className = "px-5 py-4 text-right text-sm whitespace-nowrap";
+      const currentUsername = sessionStorage.getItem("localrag.username");
+      const isSelf = !!currentUsername && user.username === currentUsername;
+
       const edit = button("Edit", `mr-2 ${Q}`);
-      edit.addEventListener("click", () => openEdit(user));
+      if (isSelf) {
+        edit.disabled = true;
+        edit.classList.add("opacity-50", "cursor-not-allowed");
+      } else {
+        edit.addEventListener("click", () => openEdit(user));
+      }
       actions.append(edit);
       if (!user.archived_at) {
         const archive = button("Archive", W);
-        archive.addEventListener("click", () => archiveUser(user));
+        if (isSelf) {
+          archive.disabled = true;
+          archive.classList.add("opacity-50", "cursor-not-allowed");
+        } else {
+          archive.addEventListener("click", () => archiveUser(user));
+        }
         actions.append(archive);
       }
       tr.append(name, role, created, status, actions);
@@ -113,6 +126,7 @@ function initUsers() {
 
   createForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!window.confirm("Create this user?")) return;
     const payload = {
       username: document.getElementById("create-username").value.trim(),
       password: document.getElementById("create-password").value,
@@ -133,6 +147,7 @@ function initUsers() {
 
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!window.confirm("Save changes to this user?")) return;
     const id = editDialog.dataset.userId;
     const payload = {
       username: document.getElementById("edit-username").value.trim(),

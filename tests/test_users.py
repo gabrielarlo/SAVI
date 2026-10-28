@@ -73,6 +73,86 @@ class TestSeeding:
         assert any("shorter than 8" in r.message for r in caplog.records)
 
 
+class TestSelfMutation:
+    def test_self_update_rejected(self, client, admin_headers):
+        client.post(
+            "/admin/users",
+            json={"username": "selfuser", "password": "password123", "role": "administrator"},
+            headers=admin_headers,
+        )
+        login = client.post("/auth/login", json={"username": "selfuser", "password": "password123"})
+        token = login.json()["session_token"]
+        headers = {"X-Session-Token": token}
+        profile = client.get("/auth/profile", headers=headers).json()
+        response = client.patch(
+            f"/admin/users/{profile['id']}",
+            json={"username": "changed"},
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    def test_self_archive_rejected(self, client, admin_headers):
+        client.post(
+            "/admin/users",
+            json={"username": "selfuser2", "password": "password123", "role": "administrator"},
+            headers=admin_headers,
+        )
+        login = client.post("/auth/login", json={"username": "selfuser2", "password": "password123"})
+        token = login.json()["session_token"]
+        headers = {"X-Session-Token": token}
+        profile = client.get("/auth/profile", headers=headers).json()
+        response = client.post(
+            f"/admin/users/{profile['id']}/archive",
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+
+class TestProfile:
+    def test_read_and_update_profile(self, client, admin_headers):
+        client.post(
+            "/admin/users",
+            json={"username": "profuser", "password": "password123", "role": "account_manager"},
+            headers=admin_headers,
+        )
+        login = client.post("/auth/login", json={"username": "profuser", "password": "password123"})
+        assert login.status_code == 200
+        token = login.json()["session_token"]
+        headers = {"X-Session-Token": token}
+
+        profile = client.get("/auth/profile", headers=headers)
+        assert profile.status_code == 200
+        assert profile.json()["username"] == "profuser"
+        assert "password_hash" not in profile.json()
+
+        updated = client.patch(
+            "/auth/profile", json={"password": "newpassword1"}, headers=headers
+        )
+        assert updated.status_code == 200
+
+        relogin = client.post("/auth/login", json={"username": "profuser", "password": "newpassword1"})
+        assert relogin.status_code == 200
+
+    def test_profile_short_password_rejected(self, client, admin_headers):
+        client.post(
+            "/admin/users",
+            json={"username": "profuser2", "password": "password123", "role": "account_manager"},
+            headers=admin_headers,
+        )
+        login = client.post("/auth/login", json={"username": "profuser2", "password": "password123"})
+        token = login.json()["session_token"]
+        headers = {"X-Session-Token": token}
+
+        response = client.patch(
+            "/auth/profile", json={"password": "short"}, headers=headers
+        )
+        assert response.status_code == 400
+
+    def test_profile_requires_session(self, client, admin_headers):
+        response = client.get("/auth/profile", headers=admin_headers)
+        assert response.status_code == 401
+
+
 class TestUserCRUD:
     def test_create_and_list(self, client, admin_headers):
         response = _create_user(client, admin_headers)

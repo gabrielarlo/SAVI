@@ -7,6 +7,7 @@
 
 const SECRET_KEY = "localrag.adminSecret";
 const SESSION_KEY = "localrag.sessionToken";
+const USERNAME_KEY = "localrag.username";
 
 export const getSecret = () => sessionStorage.getItem(SECRET_KEY);
 export const getSessionToken = () => sessionStorage.getItem(SESSION_KEY);
@@ -14,6 +15,7 @@ export const getSessionToken = () => sessionStorage.getItem(SESSION_KEY);
 export function signOut() {
   sessionStorage.removeItem(SECRET_KEY);
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(USERNAME_KEY);
   window.location.replace("/auth/signin");
 }
 
@@ -134,6 +136,7 @@ function initSignin() {
         throw new Error(body?.error?.message || `Request failed (${response.status})`);
       }
       sessionStorage.setItem(SESSION_KEY, body.session_token);
+      sessionStorage.setItem(USERNAME_KEY, u);
       window.location.replace("/console");
     } catch (failure) {
       error.textContent = failure.message;
@@ -297,6 +300,7 @@ function initDocuments() {
 
   uploadForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!window.confirm("Upload this document?")) return;
     if (!uploadTenant.value) {
       showMessage(uploadMessage, "Select a tenant first.", true);
       return;

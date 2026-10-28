@@ -60,6 +60,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ProfileUpdateRequest(BaseModel):
+    username: str | None = None
+    password: str | None = None
+
+
 class IngestRequest(BaseModel):
     tenant_id: str
     title: str
@@ -377,6 +382,58 @@ def login(
     }
 
 
+@auth_router.get("/profile")
+def get_profile(
+    role: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if not getattr(role, "username", None):
+        raise HTTPException(status_code=401, detail="Console session required")
+    row = db.execute(
+        "SELECT id, username, role, created_at, archived_at FROM users WHERE username = ?",
+        (role.username,),
+    ).fetchone()
+    if row is None or row["archived_at"] is not None:
+        raise HTTPException(status_code=401, detail="Console session required")
+    return {"id": row["id"], "username": row["username"], "role": row["role"]}
+
+
+@auth_router.patch("/profile")
+def update_profile(
+    payload: ProfileUpdateRequest,
+    role: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+    config: Config = Depends(get_config),
+):
+    if not getattr(role, "username", None):
+        raise HTTPException(status_code=401, detail="Console session required")
+    row = db.execute(
+        "SELECT id, username, role, archived_at FROM users WHERE username = ?",
+        (role.username,),
+    ).fetchone()
+    if row is None or row["archived_at"] is not None:
+        raise HTTPException(status_code=401, detail="Console session required")
+    user_id = row["id"]
+    username_changed = payload.username is not None and payload.username != row["username"]
+    if payload.username is not None:
+        db.execute("UPDATE users SET username = ? WHERE id = ?", (payload.username, user_id))
+    if payload.password is not None:
+        if len(payload.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+        db.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(payload.password), user_id),
+        )
+    db.commit()
+    updated = db.execute(
+        "SELECT id, username, role FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    result = {"id": updated["id"], "username": updated["username"], "role": updated["role"]}
+    if username_changed:
+        result["session_token"] = issue_session_token(updated["username"], config.admin_secret)
+    return result
+
+
 @admin_router.get("/users")
 def list_users(
     include_archived: bool = False,
@@ -424,10 +481,12 @@ def create_user(
 def update_user(
     user_id: str,
     payload: UpdateUserRequest,
-    _: AdminRole = Depends(require_admin),
+    role: AdminRole = Depends(require_admin),
     db=Depends(get_db),
 ):
-    _user_or_404(db, user_id)
+    row = _user_or_404(db, user_id)
+    if getattr(role, "username", None) and row["username"] == role.username:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account")
     if payload.username is not None:
         db.execute("UPDATE users SET username = ? WHERE id = ?", (payload.username, user_id))
     if payload.role is not None:
@@ -467,10 +526,12 @@ def tenant_chat(
 @admin_router.post("/users/{user_id}/archive")
 def archive_user(
     user_id: str,
-    _: AdminRole = Depends(require_admin),
+    role: AdminRole = Depends(require_admin),
     db=Depends(get_db),
 ):
-    _user_or_404(db, user_id)
+    row = _user_or_404(db, user_id)
+    if getattr(role, "username", None) and row["username"] == role.username:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account")
     db.execute(
         "UPDATE users SET archived_at = CURRENT_TIMESTAMP"
         " WHERE id = ? AND archived_at IS NULL",

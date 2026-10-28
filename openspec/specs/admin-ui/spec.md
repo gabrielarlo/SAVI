@@ -288,3 +288,120 @@ console page, visible and functional only for authenticated users.
 
 - **WHEN** an unauthenticated request is made to `/admin/chat`
 - **THEN** the service responds `401`
+
+### Requirement: All modals centered
+
+Every modal dialog in the console MUST be centered in the viewport, including
+document View, tenant Edit/Create, and user Create/Edit/Archive dialogs.
+
+#### Scenario: Any modal centered
+
+- **WHEN** any modal dialog opens
+- **THEN** it is centered in the viewport
+
+### Requirement: Reusable modal component
+
+The console SHALL provide a reusable modal component (overlay + panel) used by
+all dialogs to ensure consistent centering and styling.
+
+#### Scenario: Reusable modal used
+
+- **WHEN** a dialog is rendered
+- **THEN** it uses the shared modal overlay/panel classes
+
+### Requirement: Confirmation for data mutations
+
+All data mutation actions (documents, tenants, users: create, update, archive,
+delete) MUST require an explicit confirmation modal before the request is sent.
+
+#### Scenario: Create user confirmed
+
+- **WHEN** an operator submits the create-user form
+- **THEN** a confirmation modal appears and the request is sent only after
+  confirmation
+
+#### Scenario: Archive user confirmed
+
+- **WHEN** an operator clicks Archive on a user
+- **THEN** a confirmation modal appears before the archive request
+
+#### Scenario: Delete document confirmed
+
+- **WHEN** an operator clicks Delete on a document
+- **THEN** a confirmation modal appears before the delete request
+
+#### Scenario: Tenant mutation confirmed
+
+- **WHEN** an operator creates, updates, or archives a tenant
+- **THEN** a confirmation modal appears before the request is sent
+
+### Requirement: Centered modal dialogs
+
+All modal dialogs in the console MUST be centered in the viewport both
+horizontally and vertically.
+
+#### Scenario: Modal centered
+
+- **WHEN** a modal dialog opens
+- **THEN** it is centered in the viewport
+
+### Requirement: Header username display
+
+The header user dropdown MUST display the signed-in username instead of a static
+"Admin" label.
+
+#### Scenario: Header shows username
+
+- **WHEN** a user is signed in
+- **THEN** the header displays their username
+
+### Requirement: Text-based avatar
+
+The user dropdown avatar MUST render text initials derived from the signed-in
+username instead of an image, using the first two letters uppercased (e.g.
+`savi_admin` → `SA`).
+
+#### Scenario: Avatar shows initials
+
+- **WHEN** the signed-in username is `savi_admin`
+- **THEN** the avatar displays `SA`
+
+### Requirement: Profile modal
+
+The console SHALL provide a Profile modal reachable from the user dropdown (not
+the sidebar) for managing the signed-in user's own profile.
+
+- The modal MUST allow updating username and password.
+- Password changes MUST enforce the minimal password policy.
+- The modal MUST be centered and rendered as text (no HTML injection).
+
+#### Scenario: Open profile modal
+
+- **WHEN** the user selects "Profile" from the user dropdown
+- **THEN** the Profile modal opens centered
+
+#### Scenario: Password policy enforced
+
+- **WHEN** a password shorter than 8 characters is submitted
+- **THEN** the request is rejected with a validation error
+
+### Requirement: Restrict self-mutation on Users page
+
+The Users management page MUST NOT allow the signed-in user to edit or archive
+their own account. The Edit and Archive actions for the current user's row MUST
+be disabled or hidden.
+
+#### Scenario: Self row actions disabled
+
+- **WHEN** an operator views the Users page while signed in
+- **THEN** their own row has no enabled Edit or Archive action
+
+### Requirement: Self-mutation safeguard (backend)
+
+The service MUST reject attempts to update or archive the signed-in user via
+admin user endpoints with `400` or `403`.
+
+#### Scenario: Self update rejected
+
+- **WHEN** an admin attempts to PATCH their own user record
+- **THEN** the service responds `400` or `403`

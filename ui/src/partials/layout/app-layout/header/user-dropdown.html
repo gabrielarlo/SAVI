@@ -1,5 +1,43 @@
 <!-- User Dropdown -->
-<div class="relative" x-data="{ open: false }" @click.outside="open = false">
+<div
+  class="relative"
+  x-data="{
+    open: false,
+    profileOpen: false,
+    profileUsername: '',
+    profilePassword: '',
+    profileStatus: '',
+    async openProfile() {
+      this.open = false;
+      this.profileOpen = true;
+      this.profileStatus = '';
+      try {
+        const token = sessionStorage.getItem('localrag.sessionToken');
+        const res = await fetch('/auth/profile', { headers: { 'X-Session-Token': token || '' } });
+        const body = await res.json().catch(() => null);
+        if (res.ok && body) { this.profileUsername = body.username || ''; }
+      } catch (e) { this.profileStatus = 'Failed to load profile.'; }
+    },
+    async submitProfile() {
+      this.profileStatus = '';
+      try {
+        const token = sessionStorage.getItem('localrag.sessionToken');
+        const res = await fetch('/auth/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Session-Token': token || '' },
+          body: JSON.stringify({ username: this.profileUsername, password: this.profilePassword || undefined }),
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) { this.profileStatus = body?.error?.message || 'Update failed.'; return; }
+        this.profileStatus = 'Saved.';
+        if (body?.username) { sessionStorage.setItem('localrag.username', body.username); }
+        if (body?.session_token) { sessionStorage.setItem('localrag.sessionToken', body.session_token); }
+        this.profilePassword = '';
+      } catch (e) { this.profileStatus = 'Update failed.'; }
+    }
+  }"
+  @click.outside="open = false"
+>
   <!-- Trigger Button -->
   <button
     type="button"
@@ -11,11 +49,15 @@
     @click="open = !open"
     class="dropdown-toggle flex items-center text-gray-700 dark:text-gray-400"
   >
-    <span class="me-3 h-11 w-11 overflow-hidden rounded-lg">
-      <img src="images/user/owner.png" alt="User" class="size-11" />
-    </span>
+    <span
+      class="me-3 flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-brand-500 text-sm font-semibold text-white"
+      x-text="(sessionStorage.getItem('localrag.username') || 'AD').slice(0, 2).toUpperCase()"
+    ></span>
 
-    <span class="me-1 block text-sm font-medium">Admin</span>
+    <span
+      class="me-1 block text-sm font-medium"
+      x-text="sessionStorage.getItem('localrag.username') || 'Admin'"
+    ></span>
 
     <svg
       class="size-5 text-gray-500 transition-transform duration-200 dark:text-gray-400"
@@ -50,7 +92,17 @@
     x-transition:leave="animate-out fade-out-0 zoom-out-95 fill-mode-forwards duration-75"
     class="absolute right-0 z-50 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg outline-none dark:border-gray-800 dark:bg-[#1E2635]"
   >
-    <!-- Sign Out (Destructive) -->
+    <!-- Profile -->
+  <button
+    type="button"
+    @click="openProfile()"
+    role="menuitem"
+    class="group/dropdown-menu-item relative flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 outline-hidden transition-colors duration-200 select-none hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+  >
+    <span>Profile</span>
+  </button>
+
+  <!-- Sign Out (Destructive) -->
     <a
       href="/auth/signin"
       id="sign-out"
@@ -75,5 +127,54 @@
       </svg>
       <span>Sign out</span>
     </a>
+
+  <!-- Profile Modal -->
+  <template x-teleport="body">
+  <div
+    x-show="profileOpen"
+    x-cloak
+    class="modal-overlay"
+    @click.self="profileOpen = false"
+  >
+    <div class="modal-panel">
+      <h2 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Profile</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="mb-1 block text-sm text-gray-600 dark:text-gray-300">Username</label>
+          <input
+            type="text"
+            x-model="profileUsername"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-gray-600 dark:text-gray-300">New password</label>
+          <input
+            type="password"
+            x-model="profilePassword"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            placeholder="Leave blank to keep current"
+          />
+        </div>
+        <p class="text-sm text-green-500" x-text="profileStatus"></p>
+      </div>
+      <div class="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          @click="profileOpen = false"
+          class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-300"
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          @click="submitProfile()"
+          class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white"
+        >
+          Save
+        </button>
+      </div>
+    </div>
   </div>
+  </template>
 </div>

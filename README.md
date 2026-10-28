@@ -42,6 +42,7 @@ Environment variables (see `.env.example`), read once at startup by
 | `ADMIN_SECRET` | `secret_admin_key` | Internal operator secret |
 | `ENV` | `local` | Deployment environment |
 | `CODE_NAME` | (none) | Chatbot persona name used in inquiry answers |
+| `COMPANY_NAME` | (none) | Company name the assistant represents |
 | `CHAT_MODEL` | `llama3.2:3b` | Ollama model for inquiry answers |
 
 `docker-compose.yml` sets `DATABASE_URL`, `QDRANT_URL`, `OLLAMA_URL`, and `ENV`

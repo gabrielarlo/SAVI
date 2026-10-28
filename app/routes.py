@@ -332,14 +332,19 @@ def admin_chat(
         title_params = (payload.tenant_id,)
     doc_count = db.execute(count_sql, count_params).fetchone()["n"]
     titles = [r["title"] for r in db.execute(title_sql, title_params).fetchall()]
+    if len(titles) > 10:
+        titles = titles[:10] + [f"... ({len(titles) - 10} more)"]
     extra_context = f"There are {doc_count} documents. Titles: {', '.join(titles)}."
 
+    user_name = getattr(role, "username", None) or "admin"
     response = generate_answer(
         payload.message,
         sources,
         config.ollama_url,
         config.chat_model,
         config.code_name,
+        config.company_name,
+        user_name,
         extra_context,
     )
     return {

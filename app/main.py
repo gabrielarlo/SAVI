@@ -8,7 +8,7 @@ from pathlib import Path
 import logging
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import hash_password, install_error_handlers
@@ -91,6 +91,15 @@ def create_app(config: Config | None = None) -> FastAPI:
         @app.get("/console/users", include_in_schema=False)
         def console_users() -> FileResponse:
             return FileResponse(UI_DIR / "users.html")
+
+        @app.get("/console/config.js", include_in_schema=False)
+        def console_config() -> Response:
+            import json
+
+            return Response(
+                f"window.LOCALRAG_CODE_NAME = {json.dumps(config.code_name or 'Assistant')};",
+                media_type="application/javascript",
+            )
 
         @app.get("/console/signin", include_in_schema=False)
         def console_signin_redirect() -> RedirectResponse:

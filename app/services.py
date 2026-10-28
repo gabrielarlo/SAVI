@@ -106,15 +106,22 @@ def generate_answer(
     ollama_url: str,
     model: str = "llama3.2:3b",
     code_name: str | None = None,
+    company_name: str | None = None,
+    user_name: str | None = None,
     extra_context: str = "",
 ) -> str:
     """Generate a concise JARVIS-style answer from retrieved sources via Ollama."""
-    name = code_name or "User"
+    assistant_name = code_name or "Assistant"
+    company = company_name or "your company"
+    user = user_name or "you"
     context = "\n".join(str(source.get("content", "")) for source in sources)
     if extra_context:
         context = extra_context + "\n" + context
     prompt = (
-        f"You are JARVIS. Address the user as {name}. "
+        f"You are {assistant_name}, the AI assistant of {company}. "
+        f"If asked who you are, answer exactly: I am {assistant_name}, the AI assistant of {company}, here to assist you, {user}. "
+        "Only answer using the provided document context. If the question is out of scope or not answerable from the documents, "
+        "reply that you can only answer from the scoped documents. "
         "Answer concisely with no greetings or filler. "
         f"Context:\n{context}\nQuestion: {message}\nAnswer:"
     )

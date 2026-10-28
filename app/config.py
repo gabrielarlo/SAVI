@@ -17,6 +17,7 @@ DEFAULT_ENV = "local"
 DEFAULT_ADMIN_USERNAME: str | None = None
 DEFAULT_ADMIN_PASSWORD: str | None = None
 DEFAULT_CODE_NAME: str | None = None
+DEFAULT_COMPANY_NAME: str | None = None
 DEFAULT_CHAT_MODEL = "llama3.2:3b"
 
 
@@ -31,6 +32,7 @@ class Config:
     default_admin_username: str | None = DEFAULT_ADMIN_USERNAME
     default_admin_password: str | None = DEFAULT_ADMIN_PASSWORD
     code_name: str | None = DEFAULT_CODE_NAME  # chatbot persona name
+    company_name: str | None = DEFAULT_COMPANY_NAME  # company name for the assistant
     chat_model: str = DEFAULT_CHAT_MODEL
 
     @classmethod
@@ -52,5 +54,6 @@ class Config:
             default_admin_username=lookup("DEFAULT_ADMIN_USERNAME"),
             default_admin_password=lookup("DEFAULT_ADMIN_PASSWORD"),
             code_name=lookup("CODE_NAME"),
+            company_name=lookup("COMPANY_NAME"),
             chat_model=lookup("CHAT_MODEL") or DEFAULT_CHAT_MODEL,
         )

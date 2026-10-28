@@ -20,7 +20,7 @@ docker compose up --build -d
 
 - API + docs: `http://localhost:8080` (`/docs` for the generated OpenAPI UI)
 - Admin console: `http://localhost:8080/console/documents`
-  (sign in at `/console/signin` with the admin secret)
+  (sign in at `/auth/signin` with username/password)
 - Qdrant: `http://localhost:6333`
 
 The stack starts the API and Qdrant. Ollama is **not** in the compose file — point
@@ -41,6 +41,8 @@ Environment variables (see `.env.example`), read once at startup by
 | `OLLAMA_URL` | `http://localhost:11434` | Embedding service |
 | `ADMIN_SECRET` | `secret_admin_key` | Internal operator secret |
 | `ENV` | `local` | Deployment environment |
+| `CODE_NAME` | (none) | Chatbot persona name used in inquiry answers |
+| `CHAT_MODEL` | `llama3.2:3b` | Ollama model for inquiry answers |
 
 `docker-compose.yml` sets `DATABASE_URL`, `QDRANT_URL`, `OLLAMA_URL`, and `ENV`
 only. `ADMIN_SECRET` falls back to the code default, so set it explicitly

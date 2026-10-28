@@ -60,7 +60,31 @@ def test_migration_runs_every_file_exactly_once(tmp_path):
     assert "archived_at" in columns
 
 
-def test_foreign_keys_are_enforced(tmp_path):
+def test_users_table_is_created_and_unique(tmp_path):
+    url = f"sqlite://{tmp_path}/local_rag.db"
+
+    db.migrate(url)
+
+    conn = db.connect(url)
+    try:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+        assert {"id", "username", "password_hash", "role", "archived_at", "created_at"} <= columns
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, role)"
+            " VALUES ('u1', 'alice', 'h', 'administrator')"
+        )
+        conn.commit()
+        try:
+            conn.execute(
+                "INSERT INTO users (id, username, password_hash, role)"
+                " VALUES ('u2', 'alice', 'h2', 'account_manager')"
+            )
+        except Exception as exc:
+            assert "UNIQUE" in str(exc).upper()
+        else:
+            raise AssertionError("duplicate username was accepted")
+    finally:
+        conn.close()
     url = f"sqlite://{tmp_path}/local_rag.db"
     db.migrate(url)
 

@@ -101,6 +101,7 @@ The application is configured via environment variables (supported via `.env` fi
 4. **Security**: The admin secret and tenant API keys are compared on every request; admin routes require `X-Admin-Secret`, tenant routes require `X-API-Key`. Never trust a `tenant_id` supplied by an external client.
 5. **Testing**: `pytest` covers configuration, migration, chunking, embeddings, and every route. Tests must not require a running Qdrant or Ollama.
 6. **Docker Only**: Run the service, the tests, and any tooling through Docker — do not assume a host Python toolchain.
+7. **Reflect Changes**: After making changes, run `docker compose up --build -d` to rebuild and restart the service so the changes take effect.
 
 ```bash
 # Full test suite
@@ -127,20 +128,23 @@ assets, Pro page templates, or any code that depends on the Pro package. The
 vendored template is TailAdmin free v2.4.0 (MIT); `ui/LICENSE` and
 `ui/README.md` must stay in place as attribution.
 
-- `ui/src/pages/` holds only three pages: `documents.html` (documents),
-  `tenants.html` (tenant management) and `signin.html`. The sidebar links to
-  Documents and Tenants only (demo pages — charts, calendar, profile, forms,
-  UI elements — were removed).
+- `ui/src/pages/` holds only four pages: `documents.html` (documents),
+  `tenants.html` (tenant management), `users.html` (user management) and
+  `signin.html`. The sidebar links to Documents, Tenants and Users only (demo
+  pages — charts, calendar, profile, forms, UI elements — were removed).
 - Tenant management is archive-only: there is no tenant delete control in the
   UI or a `DELETE /admin/tenants/*` route. Archiving sets `archived_at`; the
   archived API key then gets `403` on `/api/v1/*`.
 - `/console/tenants` is served by FastAPI from the same `UI_DIR` guard as
   `/console/documents`.
+- Follow the pattern standard in `ui/CONTRIBUTING-UI.md` (TailAdmin free only;
+  no Pro assets/components).
 - Layout partials live in `ui/src/partials/layout/app-layout/` and are inlined by
   webpack `<include>` directives at build time.
 - The admin secret is validated against `GET /admin/tenants` and kept in
   `sessionStorage` only — never `localStorage`, never a cookie. Signing out
   clears it.
+- The sign-in form supports username/password authentication, submits on Enter in either field, and includes a password visibility toggle. No email input is offered.
 - Document, chunk, and tenant text is rendered with `textContent`; never assign
   API data to `innerHTML`.
 - Operators never see raw tenant ids. The API keeps `tenant_id` in its payloads,

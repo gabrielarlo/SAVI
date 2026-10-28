@@ -14,6 +14,10 @@ DEFAULT_QDRANT_URL = "http://localhost:6333"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_ADMIN_SECRET = "secret_admin_key"
 DEFAULT_ENV = "local"
+DEFAULT_ADMIN_USERNAME: str | None = None
+DEFAULT_ADMIN_PASSWORD: str | None = None
+DEFAULT_CODE_NAME: str | None = None
+DEFAULT_CHAT_MODEL = "llama3.2:3b"
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,10 @@ class Config:
     ollama_url: str = DEFAULT_OLLAMA_URL
     admin_secret: str = DEFAULT_ADMIN_SECRET
     env: str = DEFAULT_ENV
+    default_admin_username: str | None = DEFAULT_ADMIN_USERNAME
+    default_admin_password: str | None = DEFAULT_ADMIN_PASSWORD
+    code_name: str | None = DEFAULT_CODE_NAME  # chatbot persona name
+    chat_model: str = DEFAULT_CHAT_MODEL
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -41,4 +49,8 @@ class Config:
             ollama_url=lookup("OLLAMA_URL") or DEFAULT_OLLAMA_URL,
             admin_secret=lookup("ADMIN_SECRET") or DEFAULT_ADMIN_SECRET,
             env=lookup("ENV") or DEFAULT_ENV,
+            default_admin_username=lookup("DEFAULT_ADMIN_USERNAME"),
+            default_admin_password=lookup("DEFAULT_ADMIN_PASSWORD"),
+            code_name=lookup("CODE_NAME"),
+            chat_model=lookup("CHAT_MODEL") or DEFAULT_CHAT_MODEL,
         )

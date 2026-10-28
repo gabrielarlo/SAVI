@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 def _app_with_ui(tmp_path, monkeypatch, config):
     ui = tmp_path / "build"
     ui.mkdir()
+    (ui / "dashboard.html").write_text("<h1>Dashboard</h1>")
     (ui / "documents.html").write_text("<h1>admin console</h1>")
     (ui / "tenants.html").write_text("<h1>tenant console</h1>")
     (ui / "signin.html").write_text("<h1>sign in</h1>")
@@ -37,14 +38,20 @@ class TestRootRedirect:
         app = _app_with_ui(tmp_path, monkeypatch, config)
 
         with TestClient(app) as client:
-            for path in ("/", "/console", "/console/"):
-                response = client.get(path, follow_redirects=False)
-                assert response.status_code == 307
-                assert response.headers["location"] == "/console/documents"
+            response = client.get("/", follow_redirects=False)
+            assert response.status_code == 307
+            assert response.headers["location"] == "/console"
+
+            response = client.get("/console", follow_redirects=False)
+            assert response.status_code == 307
+            assert response.headers["location"] == "/console/"
+
+            response = client.get("/console/", follow_redirects=False)
+            assert response.status_code == 200
 
             page = client.get("/", follow_redirects=True)
             assert page.status_code == 200
-            assert "admin console" in page.text
+            assert "Dashboard" in page.text
 
     def test_pages_and_assets_are_served_without_credentials(
         self, tmp_path, monkeypatch, config
@@ -52,7 +59,7 @@ class TestRootRedirect:
         app = _app_with_ui(tmp_path, monkeypatch, config)
 
         with TestClient(app) as client:
-            signin = client.get("/console/signin")
+            signin = client.get("/auth/signin")
             stylesheet = client.get("/console/style.css")
 
         assert signin.status_code == 200

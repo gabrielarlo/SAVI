@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <base href="/console/" />
     <meta charset="UTF-8" />
     <meta
       name="viewport"
@@ -46,19 +47,60 @@
             <form id="signin-form" class="space-y-5" novalidate>
               <div>
                 <label
-                  for="secret"
+                  for="username"
                   class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
-                  >Admin secret</label
+                  >Username</label
                 >
                 <input
-                  id="secret"
-                  name="secret"
-                  type="password"
-                  autocomplete="current-password"
+                  id="username"
+                  name="username"
+                  type="text"
+                  autocomplete="username"
                   required
                   autofocus
                   class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                 />
+              </div>
+
+              <div>
+                <label
+                  for="password"
+                  class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
+                  >Password</label
+                >
+                <div class="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 pr-10 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  />
+                  <button
+                    type="button"
+                    id="password-toggle"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    aria-label="Show password"
+                    title="Show password"
+                  >
+                    <svg
+                      id="password-toggle-icon"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <p
@@ -77,8 +119,8 @@
             </form>
 
             <p class="mt-6 text-xs text-gray-500 dark:text-gray-400">
-              The secret is kept in this browser tab only and is cleared when
-              you sign out.
+              No email required. The session is kept in this browser tab only and
+              is cleared when you sign out.
             </p>
           </div>
         </div>

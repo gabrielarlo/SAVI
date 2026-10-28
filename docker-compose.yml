@@ -9,6 +9,11 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - ENV=${ENV:-local}
+      - ADMIN_SECRET=${ADMIN_SECRET:-secret_admin_key}
+      - DEFAULT_ADMIN_USERNAME=${DEFAULT_ADMIN_USERNAME:-}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
+      - CODE_NAME=${CODE_NAME:-}
+      - CHAT_MODEL=${CHAT_MODEL:-llama3.2:3b}
     volumes:
       - sqlite_data:/app/data
     depends_on:

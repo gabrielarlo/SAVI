@@ -7,6 +7,7 @@
 
 import {
   getSecret,
+  getSessionToken,
   request,
   setTenants,
   signOut,
@@ -40,8 +41,8 @@ const WARN_BUTTON =
   "rounded-lg border border-red-500 px-3 py-1.5 text-sm font-medium text-red-500 transition hover:bg-red-50 dark:border-red-500/40 dark:hover:bg-red-500/15";
 
 function initTenants() {
-  if (!getSecret()) {
-    window.location.replace("/console/signin");
+  if (!getSecret() && !getSessionToken()) {
+    window.location.replace("/auth/signin");
     return;
   }
 
@@ -145,7 +146,9 @@ function initTenants() {
 
   async function copyKey() {
     try {
-      await navigator.clipboard.writeText(keyValue.textContent);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(keyValue.textContent);
+      }
     } catch {
       // Non-secure origins block the clipboard API; the key stays selectable.
     }

@@ -4,6 +4,8 @@ import Alpine from "alpinejs";
 
 import "./documents.js";
 import "./tenants.js";
+import "./users.js";
+import "./chat.js";
 
 // TailAdmin Theme Manager: reads from localStorage, falls back to light
 (function () {

@@ -98,3 +98,34 @@ def ingest_document(
         (document_id, tenant_id, title, content),
     )
     return document_id, store_chunks(db, document_id, tenant_id, content, ollama_url)
+
+
+def generate_answer(
+    message: str,
+    sources: list[dict],
+    ollama_url: str,
+    model: str = "llama3.2:3b",
+    code_name: str | None = None,
+    extra_context: str = "",
+) -> str:
+    """Generate a concise JARVIS-style answer from retrieved sources via Ollama."""
+    name = code_name or "User"
+    context = "\n".join(str(source.get("content", "")) for source in sources)
+    if extra_context:
+        context = extra_context + "\n" + context
+    prompt = (
+        f"You are JARVIS. Address the user as {name}. "
+        "Answer concisely with no greetings or filler. "
+        f"Context:\n{context}\nQuestion: {message}\nAnswer:"
+    )
+    url = f"{ollama_url}/api/generate"
+    try:
+        with httpx.Client(timeout=30.0) as http:
+            response = http.post(url, json={"model": model, "prompt": prompt, "stream": False})
+        response.raise_for_status()
+        return (response.json().get("response") or "").strip() or (
+            "Answer unavailable; see sources."
+        )
+    except Exception:  # ponytail: any Ollama failure degrades to fallback answer
+        logger.warning("answer generation failed: %s", url, exc_info=True)
+        return "Answer unavailable; see sources."

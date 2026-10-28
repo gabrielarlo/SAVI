@@ -13,20 +13,26 @@ from app.auth import (
     TenantRole,
     get_config,
     get_db,
+    hash_password,
+    INVALID_LOGIN,
+    issue_session_token,
     require_admin,
     require_tenant,
+    verify_password,
 )
 from app.config import Config
 from app.services import (
     ALLOWED_UPLOAD_EXTENSIONS,
     MAX_UPLOAD_BYTES,
     extract_text,
+    generate_answer,
     ingest_document,
     store_chunks,
 )
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 external_router = APIRouter(prefix="/api/v1", tags=["external"])
+auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class CreateTenantRequest(BaseModel):
@@ -35,6 +41,23 @@ class CreateTenantRequest(BaseModel):
 
 class UpdateTenantRequest(BaseModel):
     name: str
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    role: str
+
+
+class UpdateUserRequest(BaseModel):
+    username: str | None = None
+    password: str | None = None
+    role: str | None = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 class IngestRequest(BaseModel):
@@ -49,6 +72,17 @@ class SearchRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
+    tenant_id: str | None = None
+
+
+def _user_or_404(db, user_id: str):
+    row = db.execute(
+        "SELECT id, username, role, archived_at, created_at FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return row
 
 
 def _tenant_or_404(db, tenant_id: str):
@@ -263,6 +297,151 @@ def global_search(
     return {"query": payload.query, "results": [dict(row) for row in rows]}
 
 
+@admin_router.post("/chat")
+def admin_chat(
+    payload: ChatRequest,
+    role: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+    config: Config = Depends(get_config),
+):
+    if getattr(role, "role", "administrator") == "account_manager" and not payload.tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+
+    sql = "SELECT id, tenant_id, content FROM chunks"
+    params: tuple = ()
+    if payload.tenant_id:
+        sql += " WHERE tenant_id = ?"
+        params = (payload.tenant_id,)
+    sql += " LIMIT 5"
+    rows = db.execute(sql, params).fetchall()
+    sources = [
+        {"id": row["id"], "tenant_id": row["tenant_id"], "content": row["content"]}
+        for row in rows
+    ]
+
+    # Document-level context so the model can answer meta questions such as
+    # "how many documents do I have?".
+    count_sql = "SELECT COUNT(*) AS n FROM documents"
+    title_sql = "SELECT title FROM documents"
+    count_params: tuple = ()
+    title_params: tuple = ()
+    if payload.tenant_id:
+        count_sql += " WHERE tenant_id = ?"
+        title_sql += " WHERE tenant_id = ?"
+        count_params = (payload.tenant_id,)
+        title_params = (payload.tenant_id,)
+    doc_count = db.execute(count_sql, count_params).fetchone()["n"]
+    titles = [r["title"] for r in db.execute(title_sql, title_params).fetchall()]
+    extra_context = f"There are {doc_count} documents. Titles: {', '.join(titles)}."
+
+    response = generate_answer(
+        payload.message,
+        sources,
+        config.ollama_url,
+        config.chat_model,
+        config.code_name,
+        extra_context,
+    )
+    return {
+        "tenant_id": payload.tenant_id,
+        "response": response,
+        "sources": sources,
+    }
+
+
+@auth_router.post("/login")
+def login(
+    payload: LoginRequest,
+    db=Depends(get_db),
+    config: Config = Depends(get_config),
+):
+    row = db.execute(
+        "SELECT username, password_hash, role, archived_at FROM users WHERE username = ?",
+        (payload.username,),
+    ).fetchone()
+    if (
+        row is None
+        or row["archived_at"] is not None
+        or not verify_password(payload.password, row["password_hash"])
+    ):
+        raise HTTPException(status_code=401, detail=INVALID_LOGIN)
+    return {
+        "username": row["username"],
+        "role": row["role"],
+        "session_token": issue_session_token(row["username"], config.admin_secret),
+    }
+
+
+@admin_router.get("/users")
+def list_users(
+    include_archived: bool = False,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    sql = "SELECT id, username, role, created_at, archived_at FROM users"
+    if not include_archived:
+        sql += " WHERE archived_at IS NULL"
+    sql += " ORDER BY created_at ASC"
+    return [dict(row) for row in db.execute(sql).fetchall()]
+
+
+@admin_router.get("/users/{user_id}")
+def get_user(
+    user_id: str,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    return dict(_user_or_404(db, user_id))
+
+
+@admin_router.post("/users")
+def create_user(
+    payload: CreateUserRequest,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if payload.role not in ("administrator", "account_manager"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    if len(payload.password) < 8:
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 8 characters"
+        )
+    user_id = str(uuid.uuid4())
+    db.execute(
+        "INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)",
+        (user_id, payload.username, hash_password(payload.password), payload.role),
+    )
+    db.commit()
+    return dict(_user_or_404(db, user_id))
+
+
+@admin_router.patch("/users/{user_id}")
+def update_user(
+    user_id: str,
+    payload: UpdateUserRequest,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    _user_or_404(db, user_id)
+    if payload.username is not None:
+        db.execute("UPDATE users SET username = ? WHERE id = ?", (payload.username, user_id))
+    if payload.role is not None:
+        if payload.role not in ("administrator", "account_manager"):
+            raise HTTPException(status_code=400, detail="Invalid role")
+        db.execute("UPDATE users SET role = ? WHERE id = ?", (payload.role, user_id))
+    if payload.password is not None:
+        if len(payload.password) < 8:
+            raise HTTPException(
+                status_code=400, detail="Password must be at least 8 characters"
+            )
+        db.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(payload.password), user_id),
+        )
+    db.commit()
+    return dict(_user_or_404(db, user_id))
+
+
 @external_router.post("/chat")
 def tenant_chat(
     _payload: ChatRequest,
@@ -278,3 +457,19 @@ def tenant_chat(
         "response": "RAG response based on tenant context",
         "sources": [dict(row) for row in rows],
     }
+
+
+@admin_router.post("/users/{user_id}/archive")
+def archive_user(
+    user_id: str,
+    _: AdminRole = Depends(require_admin),
+    db=Depends(get_db),
+):
+    _user_or_404(db, user_id)
+    db.execute(
+        "UPDATE users SET archived_at = CURRENT_TIMESTAMP"
+        " WHERE id = ? AND archived_at IS NULL",
+        (user_id,),
+    )
+    db.commit()
+    return dict(_user_or_404(db, user_id))

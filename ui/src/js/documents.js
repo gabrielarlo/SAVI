@@ -6,19 +6,24 @@
  */
 
 const SECRET_KEY = "localrag.adminSecret";
+const SESSION_KEY = "localrag.sessionToken";
 
 export const getSecret = () => sessionStorage.getItem(SECRET_KEY);
+export const getSessionToken = () => sessionStorage.getItem(SESSION_KEY);
 
 export function signOut() {
   sessionStorage.removeItem(SECRET_KEY);
-  window.location.replace("/console/signin");
+  sessionStorage.removeItem(SESSION_KEY);
+  window.location.replace("/auth/signin");
 }
 
 export async function request(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { ...(options.headers || {}), "X-Admin-Secret": getSecret() || "" },
-  });
+  const headers = { ...(options.headers || {}) };
+  const token = getSessionToken();
+  if (token) headers["X-Session-Token"] = token;
+  else if (getSecret()) headers["X-Admin-Secret"] = getSecret();
+
+  const response = await fetch(path, { ...options, headers });
 
   if (response.status === 401) {
     signOut();
@@ -66,6 +71,21 @@ export function setTenants(tenants) {
 
 export const tenantLabel = (id) => tenantLabels.get(id) || "Unknown tenant";
 
+export function wirePasswordToggle(input, toggle, icon) {
+  if (!input || !toggle) return;
+  toggle.addEventListener("click", () => {
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    toggle.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+    toggle.setAttribute("title", isPassword ? "Hide password" : "Show password");
+    if (icon) {
+      icon.innerHTML = isPassword
+        ? '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line>'
+        : '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>';
+    }
+  });
+}
+
 function fillTenantSelect(select, tenants, emptyLabel) {
   const current = select.value;
   select.replaceChildren(new Option(emptyLabel, ""));
@@ -76,16 +96,27 @@ function fillTenantSelect(select, tenants, emptyLabel) {
 }
 
 function initSignin() {
+  if (sessionStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SECRET_KEY)) {
+    window.location.replace("/console");
+    return;
+  }
   const form = document.getElementById("signin-form");
-  const input = document.getElementById("secret");
+  const username = document.getElementById("username");
+  const password = document.getElementById("password");
   const submit = document.getElementById("signin-submit");
   const error = document.getElementById("signin-error");
+  const passwordToggle = document.getElementById("password-toggle");
+  const passwordToggleIcon = document.getElementById("password-toggle-icon");
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const secret = input.value.trim();
-    if (!secret) {
-      error.textContent = "Enter the admin secret.";
+  if (passwordToggle && password) {
+    wirePasswordToggle(password, passwordToggle, passwordToggleIcon);
+  }
+
+  const submitForm = async () => {
+    const u = username.value.trim();
+    const p = password.value;
+    if (!u || !p) {
+      error.textContent = "Enter username and password.";
       error.classList.remove("hidden");
       return;
     }
@@ -93,28 +124,43 @@ function initSignin() {
     submit.disabled = true;
     error.classList.add("hidden");
     try {
-      const response = await fetch("/admin/tenants", {
-        headers: { "X-Admin-Secret": secret },
+      const response = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: u, password: p }),
       });
+      const body = await response.json().catch(() => null);
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(
-          body?.error?.message || `Request failed (${response.status})`,
-        );
+        throw new Error(body?.error?.message || `Request failed (${response.status})`);
       }
-      sessionStorage.setItem(SECRET_KEY, secret);
-      window.location.replace("/console/documents");
+      sessionStorage.setItem(SESSION_KEY, body.session_token);
+      window.location.replace("/console");
     } catch (failure) {
       error.textContent = failure.message;
       error.classList.remove("hidden");
       submit.disabled = false;
     }
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitForm();
+  });
+
+  [username, password].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submitForm();
+      }
+    });
   });
 }
 
 function initDocuments() {
-  if (!getSecret()) {
-    window.location.replace("/console/signin");
+  if (!getSecret() && !getSessionToken()) {
+    window.location.replace("/auth/signin");
     return;
   }
 

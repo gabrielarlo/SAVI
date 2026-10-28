@@ -26,6 +26,32 @@
   </h3>
 
   <ul class="mb-6 flex flex-col gap-1">
+    <!-- Menu Item Dashboard -->
+    <li>
+      <a
+        href="/console"
+        class="group menu-item"
+        :class="page === 'dashboard' ? 'menu-item-active' : 'menu-item-inactive'"
+      >
+        <svg
+          :class="page === 'dashboard' ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M3 5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm2 0h4v4H5V5Zm8-2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V5Zm2 0h4v4h-4V5ZM3 15a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4Zm2 0h4v4H5v-4Zm8 0a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-4Zm2 0h4v4h-4v-4Z"
+            fill="currentColor"
+          />
+        </svg>
+        <span class="menu-item-text" :class="sidebarToggle ? 'xl:hidden' : ''">Dashboard</span>
+      </a>
+    </li>
+    <!-- Menu Item Dashboard -->
     <!-- Menu Item Documents -->
     <li>
       <a
@@ -89,5 +115,31 @@
       </a>
     </li>
     <!-- Menu Item Tenants -->
+    <!-- Menu Item Users -->
+    <li>
+      <a
+        href="/console/users"
+        class="group menu-item"
+        :class="page === 'users' ? 'menu-item-active' : 'menu-item-inactive'"
+      >
+        <svg
+          :class="page === 'users' ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M12 2.75a4.25 4.25 0 1 0 0 8.5 4.25 4.25 0 0 0 0-8.5ZM6.25 19.5a5.75 5.75 0 0 1 11.5 0 .75.75 0 0 1-.75.75H7a.75.75 0 0 1-.75-.75Z"
+            fill="currentColor"
+          />
+        </svg>
+        <span class="menu-item-text" :class="sidebarToggle ? 'xl:hidden' : ''">Users</span>
+      </a>
+    </li>
+    <!-- Menu Item Users -->
   </ul>
 </div>

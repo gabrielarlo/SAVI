@@ -180,6 +180,88 @@ class TestChat:
         assert response.json()["tenant_id"] == acme["tenant_id"]
 
 
+class TestAdminChat:
+    def test_admin_inquires_across_tenants(self, client, admin_headers, tenant, ingest):
+        acme = tenant("acme")
+        beta = tenant("beta")
+        ingest(acme["tenant_id"], "acme secret")
+        ingest(beta["tenant_id"], "beta secret")
+
+        response = client.post(
+            "/admin/chat", json={"message": "hi"}, headers=admin_headers
+        )
+
+        body = response.json()
+        assert response.status_code == 200
+        assert {s["tenant_id"] for s in body["sources"]} == {
+            acme["tenant_id"],
+            beta["tenant_id"],
+        }
+        assert all("tenant_id" in s for s in body["sources"])
+
+    def test_admin_chat_scoped_to_tenant(self, client, admin_headers, tenant, ingest):
+        acme = tenant("acme")
+        beta = tenant("beta")
+        ingest(acme["tenant_id"], "acme secret")
+        ingest(beta["tenant_id"], "beta secret")
+
+        response = client.post(
+            "/admin/chat",
+            json={"message": "hi", "tenant_id": acme["tenant_id"]},
+            headers=admin_headers,
+        )
+
+        body = response.json()
+        assert response.status_code == 200
+        assert body["tenant_id"] == acme["tenant_id"]
+        assert all(s["tenant_id"] == acme["tenant_id"] for s in body["sources"])
+
+    def test_tenant_key_cannot_use_admin_chat(self, client, tenant):
+        created = tenant()
+
+        response = client.post(
+            "/admin/chat", json={"message": "hi"}, headers={"X-API-Key": created["api_key"]}
+        )
+
+        assert response.status_code == 401
+        assert response.json()["error"]["message"] == "Internal admin access required"
+
+    def test_admin_chat_empty(self, client, admin_headers):
+        response = client.post(
+            "/admin/chat", json={"message": "hi"}, headers=admin_headers
+        )
+
+        assert response.status_code == 200
+        assert response.json()["sources"] == []
+
+    def test_admin_chat_uses_generated_answer(self, client, admin_headers, monkeypatch):
+        monkeypatch.setattr(
+            "app.routes.generate_answer", lambda *a, **k: "JARVIS: ready, SAVI."
+        )
+
+        response = client.post(
+            "/admin/chat", json={"message": "hi"}, headers=admin_headers
+        )
+
+        assert response.status_code == 200
+        assert response.json()["response"] == "JARVIS: ready, SAVI."
+
+    def test_admin_chat_fallback_on_ollama_failure(
+        self, client, admin_headers, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "app.routes.generate_answer",
+            lambda *a, **k: "Answer unavailable; see sources.",
+        )
+
+        response = client.post(
+            "/admin/chat", json={"message": "hi"}, headers=admin_headers
+        )
+
+        assert response.status_code == 200
+        assert response.json()["response"] == "Answer unavailable; see sources."
+
+
 class TestWiring:
     def test_every_route_is_reachable(self, client, admin_headers, tenant):
         created = tenant()

@@ -258,6 +258,19 @@ console page, visible and functional only for authenticated users.
 - Conversation history MUST persist across page refresh for up to 24 hours from
   the latest message and MUST be restored on load.
 - A "New conversation" control MUST clear persisted history and reset the view.
+- The widget MUST include a tenant/account selector whose available options depend
+  on the authenticated user's role.
+- For an administrator, the selector MUST offer an "All accounts" option plus every
+  active tenant, defaulting to "All accounts".
+- For an account manager, the selector MUST offer only active tenants (no
+  "All accounts" option) and MUST require a selection before sending.
+- The widget MUST send the selected tenant id as `tenant_id` in `POST /admin/chat`
+  and `POST /admin/chat/voice` requests, and MUST omit `tenant_id` when
+  "All accounts" is selected.
+- While an account manager has no tenant selected, the widget MUST disable
+  sending (text submit and voice recording).
+- The selector MUST be confined to the chat widget; changing it MUST NOT affect
+  page-level tenant filters, page data, or trigger a page reload.
 
 #### Scenario: Widget present on console pages
 
@@ -288,6 +301,30 @@ console page, visible and functional only for authenticated users.
 
 - **WHEN** an unauthenticated request is made to `/admin/chat`
 - **THEN** the service responds `401`
+
+#### Scenario: Administrator sees all-accounts option
+
+- **WHEN** an administrator opens the chat widget
+- **THEN** the tenant selector offers "All accounts" plus every active tenant
+  and defaults to "All accounts"
+
+#### Scenario: Account manager must select a tenant
+
+- **WHEN** an account manager opens the chat widget
+- **THEN** the tenant selector offers only active tenants, has no "All accounts"
+  option, starts unselected, and sending is disabled until a tenant is chosen
+
+#### Scenario: Inquiry scoped to selected tenant
+
+- **WHEN** a user selects a tenant and sends a message
+- **THEN** the request includes that tenant's id as `tenant_id` and only that
+  tenant's chunks are considered
+
+#### Scenario: Selector does not affect the page
+
+- **WHEN** a user changes the chat widget's tenant selector
+- **THEN** page-level tenant filters and displayed page data remain unchanged
+  and no page reload occurs
 
 ### Requirement: All modals centered
 

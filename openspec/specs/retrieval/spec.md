@@ -65,6 +65,10 @@ inquire over stored documents.
   `tenant_id`; an inquiry without one MUST be rejected with `400`.
 - The query MUST filter on `chunks.tenant_id` at the database layer whenever a
   tenant scope is applied.
+- Retrieval MUST return relevant chunks for the applied scope, including
+  "All accounts", rather than an arbitrary first N chunks: match inquiry tokens
+  against chunk content (case-insensitive), and fall back to the most recent
+  scoped chunks when no token matches.
 - The response MUST be
   `{"tenant_id": <string | null>, "response": <string>, "sources": [{"id": <string>, "tenant_id": <string>, "content": <string>}]}`.
 - `sources` MUST contain only chunks visible under the applied scope.
@@ -96,6 +100,12 @@ inquire over stored documents.
 
 - **WHEN** a request authenticated with a tenant API key calls `/admin/chat`
 - **THEN** the service responds `401` with message `Internal admin access required`
+
+#### Scenario: All-accounts inquiry returns relevant chunks
+
+- **WHEN** an administrator selects "All accounts" and inquires about a term
+  present in a non-first chunk
+- **THEN** the response includes that chunk among `sources`
 
 ### Requirement: LLM-generated inquiry answer
 

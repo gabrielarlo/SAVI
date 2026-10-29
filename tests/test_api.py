@@ -216,6 +216,31 @@ class TestAdminChat:
         assert body["tenant_id"] == acme["tenant_id"]
         assert all(s["tenant_id"] == acme["tenant_id"] for s in body["sources"])
 
+    def test_model_receives_only_scoped_sources(self, client, admin_headers, tenant, ingest, monkeypatch):
+        acme = tenant("acme")
+        beta = tenant("beta")
+        ingest(acme["tenant_id"], "acme secret")
+        ingest(beta["tenant_id"], "beta secret")
+
+        captured = {}
+
+        def fake(message, sources, *args, **kwargs):
+            captured["sources"] = sources
+            return "scoped answer"
+
+        monkeypatch.setattr("app.routes.generate_answer", fake)
+
+        response = client.post(
+            "/admin/chat",
+            json={"message": "hi", "tenant_id": acme["tenant_id"]},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["response"] == "scoped answer"
+        assert captured["sources"]
+        assert all(s["tenant_id"] == acme["tenant_id"] for s in captured["sources"])
+
     def test_tenant_key_cannot_use_admin_chat(self, client, tenant):
         created = tenant()
 

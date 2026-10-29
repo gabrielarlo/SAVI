@@ -60,6 +60,10 @@ users to inquire over stored documents by voice.
   `tenant_id`; a request without one MUST be rejected with `400`.
 - The query MUST filter on `chunks.tenant_id` at the database layer whenever a
   tenant scope is applied.
+- Retrieval MUST return relevant chunks for the applied scope, including
+  "All accounts", rather than an arbitrary first N chunks: match transcript
+  tokens against chunk content (case-insensitive), and fall back to the most
+  recent scoped chunks when no token matches.
 - The assistant answer MUST be generated over the retrieved sources using the
   configured chat model.
 - The answer MUST be synthesized to audio using the configured Ollama
@@ -76,20 +80,21 @@ users to inquire over stored documents by voice.
 - **WHEN** an administrator uploads audio while chunks exist for tenants A and B
 - **THEN** the response is `200` and `sources` may include chunks from both tenants
 
-#### Scenario: Administrator scopes voice inquiry to one tenant
+#### Scenario: Administrator voice inquiry scoped to one tenant
 
 - **WHEN** an administrator uploads audio with a `tenant_id`
 - **THEN** every entry in `sources` belongs to that tenant
-
-#### Scenario: Account manager requires a tenant scope
-
-- **WHEN** an account manager uploads audio without `tenant_id`
-- **THEN** the service responds `400`
 
 #### Scenario: Tenant API key cannot use admin voice chat
 
 - **WHEN** a request authenticated with a tenant API key calls `/admin/chat/voice`
 - **THEN** the service responds `401` with message `Internal admin access required`
+
+#### Scenario: All-accounts voice inquiry returns relevant chunks
+
+- **WHEN** an administrator selects "All accounts" and asks by voice about a
+  term present in a non-first chunk
+- **THEN** the response includes that chunk among `sources`
 
 ### Requirement: Transcription unavailable fallback
 

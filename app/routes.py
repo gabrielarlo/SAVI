@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from pathlib import Path
 import base64
@@ -450,6 +451,53 @@ def global_search(
     return {"query": payload.query, "results": [dict(row) for row in rows]}
 
 
+def _retrieve_inquiry_chunks(db, tenant_id, query, limit=5):
+    """Return up to ``limit`` chunks relevant to ``query`` within ``tenant_id`` scope.
+
+    Matches any whitespace-delimited token (punctuation stripped) against chunk
+    content case-insensitively. Falls back to the most recent scoped chunks when
+    no token matches so an inquiry never returns an empty source set solely
+    because of wording. ``tenant_id`` of ``None``/empty means all accounts.
+    """
+    tokens = [t for t in re.findall(r"\w+", query or "") if t]
+    escaped = [
+        t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        for t in tokens
+    ]
+
+    if tenant_id:
+        base_where = "WHERE tenant_id = ?"
+        base_params = (tenant_id,)
+    else:
+        base_where = ""
+        base_params = ()
+
+    # Pull all scoped chunks once and rank by token overlap so relevant chunks
+    # win over an arbitrary rowid order. Data is small; keeps matching deterministic.
+    sql = (
+        "SELECT rowid, id, tenant_id, content FROM chunks " + base_where
+    ).strip()
+    rows = db.execute(sql, base_params).fetchall()
+    if escaped and rows:
+        lowered_tokens = [t.lower() for t in escaped]
+        scored = []
+        for row in rows:
+            content = (row["content"] or "").lower()
+            score = sum(1 for t in lowered_tokens if t in content)
+            scored.append((score, row["rowid"], row))
+        scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        top = [r for score, _rid, r in scored if score > 0][:limit]
+        if top:
+            return top
+
+    sql = (
+        "SELECT id, tenant_id, content FROM chunks "
+        f"{base_where} ORDER BY rowid DESC LIMIT ?"
+    ).strip()
+    params = base_params + (limit,)
+    return db.execute(sql, params).fetchall()
+
+
 @admin_router.post("/chat")
 def admin_chat(
     payload: ChatRequest,
@@ -460,13 +508,7 @@ def admin_chat(
     if getattr(role, "role", "administrator") == "account_manager" and not payload.tenant_id:
         raise HTTPException(status_code=400, detail="tenant_id is required")
 
-    sql = "SELECT id, tenant_id, content FROM chunks"
-    params: tuple = ()
-    if payload.tenant_id:
-        sql += " WHERE tenant_id = ?"
-        params = (payload.tenant_id,)
-    sql += " LIMIT 5"
-    rows = db.execute(sql, params).fetchall()
+    rows = _retrieve_inquiry_chunks(db, payload.tenant_id, payload.message, 5)
     sources = [
         {"id": row["id"], "tenant_id": row["tenant_id"], "content": row["content"]}
         for row in rows
@@ -727,13 +769,7 @@ def admin_chat_voice(
     if not transcript:
         raise HTTPException(status_code=400, detail="No speech detected in the audio; please try again.")
 
-    sql = "SELECT id, tenant_id, content FROM chunks"
-    params: tuple = ()
-    if tenant_id:
-        sql += " WHERE tenant_id = ?"
-        params = (tenant_id,)
-    sql += " LIMIT 5"
-    rows = db.execute(sql, params).fetchall()
+    rows = _retrieve_inquiry_chunks(db, tenant_id, transcript, 5)
     sources = [
         {"id": row["id"], "tenant_id": row["tenant_id"], "content": row["content"]}
         for row in rows

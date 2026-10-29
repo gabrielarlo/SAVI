@@ -1,4 +1,4 @@
-import { request } from "./documents.js";
+import { request, setTenants, tenantLabel, getSessionToken, getSecret } from "./documents.js";
 
 const STORAGE_KEY = "localrag.chatHistory";
 const TIMESTAMP_KEY = "localrag.chatHistoryAt";
@@ -13,8 +13,12 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("chat-input");
 const newBtn = document.getElementById("chat-new");
 const mic = document.getElementById("chat-mic");
+const tenantSelect = document.getElementById("chat-tenant");
+const tenantHint = document.getElementById("chat-tenant-hint");
+const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
 
 let userScrolledUp = false;
+let userRole = "administrator";
 
 function escapeHtml(value) {
   return String(value)
@@ -234,8 +238,62 @@ function autoResizeInput() {
   input.style.height = Math.min(input.scrollHeight, 120) + "px";
 }
 
+function canSend() {
+  if (userRole !== "account_manager") return true;
+  return !!(tenantSelect && tenantSelect.value);
+}
+
+function updateSendState() {
+  const allowed = canSend();
+  if (input) input.disabled = !allowed;
+  if (submitBtn) submitBtn.disabled = !allowed;
+  if (mic) mic.disabled = !allowed;
+  if (tenantHint) tenantHint.classList.toggle("hidden", allowed);
+}
+
+async function loadRoleAndTenants() {
+  try {
+    if (getSessionToken()) {
+      const profile = await request("/auth/profile");
+      userRole = profile && profile.role ? profile.role : "administrator";
+    } else {
+      userRole = "administrator";
+    }
+  } catch (e) {
+    userRole = "administrator";
+  }
+  try {
+    const tenants = await request("/admin/tenants?include_archived=true");
+    setTenants(tenants || []);
+    if (tenantSelect) {
+      tenantSelect.replaceChildren();
+      if (userRole === "administrator") {
+        tenantSelect.append(new Option("All accounts", ""));
+      } else {
+        const placeholder = new Option("Select an account", "");
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        tenantSelect.append(placeholder);
+      }
+      for (const t of tenants || []) {
+        if (t.archived_at) continue;
+        tenantSelect.append(new Option(tenantLabel(t.id), t.id));
+      }
+      if (userRole === "administrator") tenantSelect.value = "";
+    }
+  } catch (e) {
+    // degrade gracefully: leave selector empty
+  }
+  updateSendState();
+}
+
+if (tenantSelect) {
+  tenantSelect.addEventListener("change", updateSendState);
+}
+
 if (form && input && messages) {
   loadHistory();
+  loadRoleAndTenants();
   input.addEventListener("input", autoResizeInput);
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -275,14 +333,19 @@ if (form && input && messages) {
     svg.appendChild(path);
     spinner.appendChild(svg);
     loading.appendChild(spinner);
+    if (!canSend()) return;
+
     messages.appendChild(loading);
     scrollToBottom();
 
     try {
+      const payload = { message };
+      const selectedTenant = tenantSelect ? tenantSelect.value : "";
+      if (selectedTenant) payload.tenant_id = selectedTenant;
       const body = await request("/admin/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify(payload),
       });
 
       loading.remove();
@@ -312,8 +375,11 @@ function getAdminHeaders() {
 }
 
 async function sendVoice(blob) {
+  if (!canSend()) throw new Error("Select an account first.");
   const form = new FormData();
   form.append("file", blob, "voice.webm");
+  const selectedTenant = tenantSelect ? tenantSelect.value : "";
+  if (selectedTenant) form.append("tenant_id", selectedTenant);
   const response = await fetch("/admin/chat/voice", {
     method: "POST",
     headers: getAdminHeaders(),
@@ -326,6 +392,7 @@ async function sendVoice(blob) {
 
 if (mic) {
   mic.addEventListener("click", async () => {
+    if (!canSend()) return;
     if (mediaRecorder && mediaRecorder.state === "recording") {
       mediaRecorder.stop();
       const icon = document.getElementById("chat-mic-icon");

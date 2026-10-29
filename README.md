@@ -44,6 +44,9 @@ Environment variables (see `.env.example`), read once at startup by
 | `CODE_NAME` | (none) | Chatbot persona name used in inquiry answers |
 | `COMPANY_NAME` | (none) | Company name the assistant represents |
 | `CHAT_MODEL` | `llama3.2:3b` | Ollama model for inquiry answers |
+| `CHAT_THINK` | (auto) | Enable model thinking (`true`/`false`); auto-tuned per model |
+| `CHAT_NUM_CTX` | (auto) | Context window size for chat generation |
+| `CHAT_NUM_PREDICT` | (auto) | Max tokens to generate for chat answers |
 
 `docker-compose.yml` sets `DATABASE_URL`, `QDRANT_URL`, `OLLAMA_URL`, and `ENV`
 only. `ADMIN_SECRET` falls back to the code default, so set it explicitly
@@ -76,6 +79,20 @@ curl -s -X POST localhost:8080/admin/documents -H 'X-Admin-Secret: secret_admin_
   -H 'content-type: application/json' \
   -d '{"tenant_id":"<id>","title":"FAQ","content":"Refunds take 5 days."}'
 ```
+
+## Host requirements (staging / production)
+
+The app runs in Docker, but the host must provide Docker, Ollama, and the
+required models. Verify everything with the included doctor script:
+
+```bash
+set -a && . ./.env && set +a
+./doctor.sh
+```
+
+It checks CPU/RAM/disk, Docker + compose, required env vars, Ollama reachability
+and that `CHAT_MODEL` plus `nomic-embed-text` are pulled, Qdrant, and project
+files. Exit code `0` means ready to deploy; `1` means something is missing.
 
 ## Tests
 

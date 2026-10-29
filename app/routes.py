@@ -499,6 +499,9 @@ def admin_chat(
         config.company_name,
         user_name,
         extra_context,
+        think=config.chat_think,
+        num_ctx=config.chat_num_ctx,
+        num_predict=config.chat_num_predict,
     )
     try:
         db.execute(
@@ -761,6 +764,9 @@ def admin_chat_voice(
         config.company_name,
         user_name,
         extra_context,
+        think=config.chat_think,
+        num_ctx=config.chat_num_ctx,
+        num_predict=config.chat_num_predict,
     )
 
     audio_bytes = synthesize_speech(
@@ -803,6 +809,9 @@ def tenant_chat_voice(
         [{"id": s["id"], "content": s["content"]} for s in sources],
         config.ollama_url,
         config.chat_model,
+        think=config.chat_think,
+        num_ctx=config.chat_num_ctx,
+        num_predict=config.chat_num_predict,
     )
 
     audio_bytes = synthesize_speech(

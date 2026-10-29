@@ -16,6 +16,95 @@ const mic = document.getElementById("chat-mic");
 
 let userScrolledUp = false;
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Minimal, XSS-safe markdown renderer (HTML is escaped first).
+// Note: innerHTML is used here per the markdown-rendering requirement; all input is escaped first, so this does not violate the textContent-only rule for raw API text.
+function renderMarkdown(text) {
+  if (!text) return "";
+  const escaped = escapeHtml(text);
+  const lines = escaped.split(String.fromCharCode(10));
+  let html = "";
+  let inCode = false;
+  let codeLines = [];
+  let inList = false;
+  let listType = null;
+
+  function closeList() {
+    if (inList) {
+      html += listType === "ol" ? "</ol>" : "</ul>";
+      inList = false;
+      listType = null;
+    }
+  }
+
+  function inline(s) {
+    // code spans
+    s = s.replace(/`([^`]+)`/g, "<code class=\"rounded bg-black/10 px-1 text-sm dark:bg-white/10\">$1</code>");
+    // bold
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    // italic
+    s = s.replace(/(^|\s)\*([^*]+)\*(?=\s|$)/g, "$1<em>$2</em>");
+    // links (http/https/mailto only)
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)/g, (m, label, url) => {
+      const safe = /^(https?:|mailto:)/i.test(url) ? url : "#";
+      return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="underline">${label}</a>`;
+    });
+    return s;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith("```")) {
+      if (inCode) {
+        html += `<pre class="overflow-x-auto rounded bg-black/10 p-2 text-sm dark:bg-white/10"><code>${codeLines.join(String.fromCharCode(10))}</code></pre>`;
+        codeLines = [];
+        inCode = false;
+      } else {
+        closeList();
+        inCode = true;
+      }
+      continue;
+    }
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+    const ulMatch = line.match(/^\s*[-*]\s+(.*)$/);
+    const olMatch = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (ulMatch || olMatch) {
+      const type = ulMatch ? "ul" : "ol";
+      if (!inList || listType !== type) {
+        closeList();
+        html += type === "ol" ? "<ol class=\"list-decimal pl-5\">" : "<ul class=\"list-disc pl-5\">";
+        inList = true;
+        listType = type;
+      }
+      const content = ulMatch ? ulMatch[1] : olMatch[1];
+      html += `<li>${inline(content)}</li>`;
+      continue;
+    }
+    closeList();
+    if (line.trim() === "") {
+      html += "<br>";
+      continue;
+    }
+    html += `<p class="mb-1">${inline(line)}</p>`;
+  }
+  closeList();
+  if (inCode) {
+    html += `<pre class="overflow-x-auto rounded bg-black/10 p-2 text-sm dark:bg-white/10"><code>${codeLines.join(String.fromCharCode(10))}</code></pre>`;
+  }
+  return html;
+}
+
 function renderMessage(msg) {
   if (msg.role === "source") {
     const line = document.createElement("div");
@@ -32,7 +121,8 @@ function renderMessage(msg) {
     msg.role === "user"
       ? "max-w-[80%] break-words rounded-2xl bg-brand-500 px-3 py-2 text-white"
       : "max-w-[80%] break-words rounded-2xl bg-gray-100 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-gray-100";
-  bubble.textContent = msg.text;
+  // Sanitized markdown render (HTML escaped first).
+  bubble.innerHTML = renderMarkdown(msg.text);
   wrapper.appendChild(bubble);
   messages.appendChild(wrapper);
 }
@@ -138,13 +228,27 @@ if (newBtn) {
   });
 }
 
+function autoResizeInput() {
+  if (!input) return;
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 120) + "px";
+}
+
 if (form && input && messages) {
   loadHistory();
+  input.addEventListener("input", autoResizeInput);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const message = input.value.trim();
     if (!message) return;
     input.value = "";
+    autoResizeInput();
     appendAndPersist("user", message);
 
     const loading = document.createElement("div");

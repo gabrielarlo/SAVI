@@ -109,30 +109,53 @@ def generate_answer(
     company_name: str | None = None,
     user_name: str | None = None,
     extra_context: str = "",
+    think: bool = False,
+    num_ctx: int | None = None,
+    num_predict: int | None = None,
 ) -> str:
     """Generate a concise JARVIS-style answer from retrieved sources via Ollama."""
     assistant_name = code_name or "Assistant"
     company = company_name or "your company"
-    user = user_name or "you"
     context = "\n".join(str(source.get("content", "")) for source in sources)
     if extra_context:
         context = extra_context + "\n" + context
     prompt = (
         f"You are {assistant_name}, the AI assistant of {company}. "
-        f"If asked who you are, answer exactly: I am {assistant_name}, the AI assistant of {company}, here to assist you, {user}. "
         "Only answer using the provided document context. If the question is out of scope or not answerable from the documents, "
         "reply that you can only answer from the scoped documents. "
-        "Answer concisely with no greetings or filler. "
+        "Be concise: answer in 1-3 short sentences, no greetings, no filler, no repetition. "
+        "Use bullet points only when they improve readability. "
+        "Format the answer with Markdown (bold, bullets, code) when it aids clarity. "
         f"Context:\n{context}\nQuestion: {message}\nAnswer:"
     )
-    url = f"{ollama_url}/api/generate"
+    url = f"{ollama_url}/api/chat"
+    payload: dict = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You are a concise assistant. Answer in 1-3 short sentences. No greetings, no filler, no repetition. Use bullet points only when they improve readability. Format answers with Markdown (bold, bullets, code) when it aids clarity."},
+            {"role": "user", "content": prompt},
+        ],
+        "stream": False,
+        "think": think,
+    }
+    options: dict = {}
+    if num_ctx:
+        options["num_ctx"] = num_ctx
+    if num_predict:
+        options["num_predict"] = num_predict
+    if options:
+        payload["options"] = options
     try:
-        with httpx.Client(timeout=30.0) as http:
-            response = http.post(url, json={"model": model, "prompt": prompt, "stream": False})
+        with httpx.Client(timeout=60.0) as http:
+            response = http.post(url, json=payload)
         response.raise_for_status()
-        return (response.json().get("response") or "").strip() or (
-            "Answer unavailable; see sources."
-        )
+        data = response.json()
+        message = data.get("message") or {}
+        content = (message.get("content") or "").strip()
+        # Strip any leaked thinking blocks just in case.
+        if "</think>" in content:
+            content = content.split("</think>", 1)[-1].strip()
+        return content or "Answer unavailable; see sources."
     except Exception:  # ponytail: any Ollama failure degrades to fallback answer
         logger.warning("answer generation failed: %s", url, exc_info=True)
         return "Answer unavailable; see sources."
